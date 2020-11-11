@@ -222,12 +222,12 @@ public:
     mlir::StringAttr orderingAttribute = builder.getStringAttr(networkOrdering);
     mlir::StringAttr idAttribute = builder.getStringAttr(networkId);
 
-    // mlir::pcc::NetworkType netType = mlir::pcc::NetworkType::get(builder.getContext());
-    // std::cout << netType.getMnemonic().str() << std::endl;
+
+    mlir::pcc::NetworkType netType = mlir::pcc::NetworkType::get(builder.getContext());
 
     mlir::pcc::NetworkDeclOp networkOp =
         builder.create<mlir::pcc::NetworkDeclOp>(
-            builder.getUnknownLoc(), idAttribute, orderingAttribute);
+            builder.getUnknownLoc(), netType,  idAttribute, orderingAttribute);
 
     theModule.push_back(networkOp);
 

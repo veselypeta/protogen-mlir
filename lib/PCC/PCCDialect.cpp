@@ -1,5 +1,6 @@
 #include "PCC/Dialect.h"
 #include "PCC/Ops.h"
+#include "PCC/Types.h"
 
 
 using namespace mlir;
@@ -11,8 +12,13 @@ void PCCDialect::initialize() {
 #include "PCC/PCC.cpp.inc"
       >();
 
-//   addTypes<
-// #define GET_TYPEDEF_LIST
-// #include "PCC/PCCOpsTypes.cpp.inc"
-//       >();
+  addTypes<
+#define GET_TYPEDEF_LIST
+#include "PCC/PCCTypes.cpp.inc"
+      >();
+}
+
+// override the printType and parseType hooks
+void PCCDialect::printType(Type type, DialectAsmPrinter &ap) const {
+  generatedTypePrinter(type, ap);
 }

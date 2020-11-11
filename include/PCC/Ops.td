@@ -24,6 +24,7 @@ def ConstantOp : PCC_Op<"constant", [ConstantLike, NoSideEffect]> {
 }
 
 def NetworkDeclOp: PCC_Op<"network_decl", [NoSideEffect]> {
+
         let summary = "operation to declare global network";
 
         let description = [{
@@ -38,6 +39,7 @@ def NetworkDeclOp: PCC_Op<"network_decl", [NoSideEffect]> {
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
 
+        let results = (outs NetworkType:$output);
 }
 
 #endif // PCC_OPS

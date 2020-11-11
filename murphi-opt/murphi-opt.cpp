@@ -23,6 +23,8 @@
 
 #include "Murphi/MurphiDialect.h"
 #include "PCC/Dialect.h"
+#include "PCC/Ops.h"
+#include "PCC/Types.h"
 #include "Passes/PCCtoMurphiPass/Passes.h"
 
 #include "ProtoCCBaseVisitor.h"

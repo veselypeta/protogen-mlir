@@ -2,5 +2,23 @@
 
 #include "mlir/IR/Dialect.h"
 
-// export the table generated dialect definition
-#include "PCC/PCCDialect.h.inc"
+namespace mlir {
+namespace pcc {
+
+class PCCDialect : public ::mlir::Dialect {
+  explicit PCCDialect(::mlir::MLIRContext *context)
+    : ::mlir::Dialect(getDialectNamespace(), context,
+      ::mlir::TypeID::get<PCCDialect>()) {
+    
+    initialize();
+  }
+  void initialize();
+  friend class ::mlir::MLIRContext;
+public:
+  static ::llvm::StringRef getDialectNamespace() { return "pcc"; }
+  // add custom type printers/parsers
+//   Type parseType(DialectAsmParser &parser) const override;
+  void printType(Type, DialectAsmPrinter &) const override;
+};
+} // namespace pcc
+} // namespace mlir
