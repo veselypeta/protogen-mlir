@@ -1,8 +1,6 @@
 #ifndef PCC_Types
 #define PCC_Types
 
-#include "PCC/Dialect.h"
-
 // // All of the types will extend this class.
 class PCC_Type<string name> : TypeDef<PCC_Dialect, name> {}
 

@@ -12,8 +12,8 @@
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Verifier.h"
 
-#include "PCC/PCCDialect.h"
-#include "PCC/PCCOps.h"
+#include "PCC/Dialect.h"
+#include "PCC/Ops.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"

@@ -3,6 +3,9 @@
 #define PCC_DIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
 
 //===----------------------------------------------------------------------===//
 // PCC dialect definition.
@@ -25,6 +28,8 @@ class PCC_Op<string mnemonic, list<OpTrait> traits = []> :
         Op<PCC_Dialect, mnemonic, traits>;
 
 
+include "Types.td"
+include "Ops.td"
 
 
 #endif // PCC_DIALECT

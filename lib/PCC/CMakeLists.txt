@@ -6,7 +6,7 @@ add_mlir_dialect_library(MLIRPCC
     ${PROJECT_SOURCE_DIR}/include/PCC
 
     DEPENDS
-    MLIRPCCOpsIncGen
+    MLIRPCCIncGen
 
 	LINK_LIBS PUBLIC
 	MLIRIR

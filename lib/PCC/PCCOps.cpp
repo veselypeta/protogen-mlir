@@ -1,6 +1,6 @@
-#include "PCC/PCCOps.h"
-#include "PCC/PCCDialect.h"
+#include "PCC/Ops.h"
+#include "PCC/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
 
 #define GET_OP_CLASSES
-#include "PCC/PCCOps.cpp.inc"
+#include "PCC/PCC.cpp.inc"

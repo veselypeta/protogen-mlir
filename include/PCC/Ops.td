@@ -1,9 +1,6 @@
 #ifndef PCC_OPS
 #define PCC_OPS
 
-include "PCCDialect.td"
-include "mlir/Interfaces/SideEffectInterfaces.td"
-
 def ConstantOp : PCC_Op<"constant", [ConstantLike, NoSideEffect]> {
     let summary = "constant";
     let description = [{
@@ -40,7 +37,6 @@ def NetworkDeclOp: PCC_Op<"network_decl", [NoSideEffect]> {
         }];
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
-
 
 }
 

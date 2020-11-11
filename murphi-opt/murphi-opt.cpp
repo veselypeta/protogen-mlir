@@ -22,7 +22,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 
 #include "Murphi/MurphiDialect.h"
-#include "PCC/PCCDialect.h"
+#include "PCC/Dialect.h"
 #include "Passes/PCCtoMurphiPass/Passes.h"
 
 #include "ProtoCCBaseVisitor.h"

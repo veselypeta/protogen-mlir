@@ -1,5 +1,5 @@
-#include "PCC/PCCDialect.h"
-#include "PCC/PCCOps.h"
+#include "PCC/Dialect.h"
+#include "PCC/Ops.h"
 #include "Murphi/MurphiDialect.h"
 #include "Murphi/MurphiOps.h"
 
