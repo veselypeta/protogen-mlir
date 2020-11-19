@@ -33,6 +33,8 @@
 #include "ProtoCCParser.h"
 #include "ProtoCCVisitor.h"
 
+#include "mlirGen.h"
+
 void getAST() {
   std::ifstream stream;
   stream.open("/Users/petrvesely/dev/mlir/mlir-standalone-template/MI.pcc", std::ifstream::in);
@@ -44,13 +46,14 @@ void getAST() {
   ProtoCCParser parser(&tokens);
   ProtoCCParser::DocumentContext *tree = parser.document();
 
+  // Create MLIR Context
   mlir::MLIRContext context(/*loadAllDialects=*/false);
   context.getOrLoadDialect<mlir::pcc::PCCDialect>();
+  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::scf::SCFDialect>();
 
-  ProtoCCMLIRVisitor visitor(context);
-  
-  mlir::ModuleOp module = visitor.mlirGen(tree);
-  module.dump();
+  mlir::OwningModuleRef module = pcc::mlirGen(context, tree);
+  module->dump();
 }
 
 int main(int argc, char **argv) {

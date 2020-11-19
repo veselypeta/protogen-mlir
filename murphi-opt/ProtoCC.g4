@@ -183,7 +183,7 @@ init_hw : network_block | machines | message_block;
 /** Behavioural */
 arch_block : ARCH ID OCBRACE arch_body CCBRACE;
 
-arch_body: (stable_def | process_block)*;
+arch_body: stable_def process_block*;
 
 stable_def : STABLE OCBRACE ID (COMMA ID)* CCBRACE;
 

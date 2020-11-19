@@ -23,7 +23,7 @@ def ConstantOp : PCC_Op<"constant", [ConstantLike, NoSideEffect]> {
     ];
 }
 
-def NetworkDeclOp: PCC_Op<"network_decl", [NoSideEffect]> {
+def NetworkDeclOp: PCC_Op<"network_decl", []> {
 
         let summary = "operation to declare global network";
 

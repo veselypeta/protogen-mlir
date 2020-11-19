@@ -3,6 +3,7 @@
 #include "ProtoCCVisitor.h"
 #include "antlr4-runtime.h"
 #include <iostream>
+#include <utility>
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -15,6 +16,7 @@
 #include "PCC/Dialect.h"
 #include "PCC/Ops.h"
 
+#include "ProtoCCLexer.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
@@ -222,12 +224,12 @@ public:
     mlir::StringAttr orderingAttribute = builder.getStringAttr(networkOrdering);
     mlir::StringAttr idAttribute = builder.getStringAttr(networkId);
 
-
-    mlir::pcc::NetworkType netType = mlir::pcc::NetworkType::get(builder.getContext());
+    mlir::pcc::NetworkType netType =
+        mlir::pcc::NetworkType::get(builder.getContext());
 
     mlir::pcc::NetworkDeclOp networkOp =
         builder.create<mlir::pcc::NetworkDeclOp>(
-            builder.getUnknownLoc(), netType,  idAttribute, orderingAttribute);
+            builder.getUnknownLoc(), netType, idAttribute, orderingAttribute);
 
     theModule.push_back(networkOp);
 
@@ -291,6 +293,18 @@ public:
 
   virtual antlrcpp::Any
   visitArch_block(ProtoCCParser::Arch_blockContext *ctx) override {
+
+    // get the id of the architecture
+    std::string id = ctx->ID()->getText();
+
+    auto funcType = builder.getFunctionType(llvm::None, llvm::None); // TODO - set the type of the function correctly
+    mlir::FuncOp function =
+        mlir::FuncOp::create(builder.getUnknownLoc(), id, funcType);
+
+    // Generate Blocks for operations
+    mlirGen(ctx->arch_body(), function);
+
+    theModule.push_back(function);
     return visitChildren(ctx);
   }
 
@@ -299,9 +313,134 @@ public:
     return visitChildren(ctx);
   }
 
+  // Generate MLIR Blocks for Switch Statement Style in cache
+  void mlirGen(ProtoCCParser::Arch_bodyContext *ctx,
+                        mlir::FuncOp archFunction) {
+
+    llvm::StringMap<mlir::Block *> blockMap;
+
+    std::vector<std::string> stableStates =
+        visitStable_def_mlir(ctx->stable_def());
+
+    std::vector<mlir::Block *> switch_blocks;
+    std::vector<mlir::Block *> state_blocks;
+
+
+
+    // Push the switch Blocks
+    for (std::string stableState : stableStates) {
+      auto switch_block = new mlir::Block;
+      archFunction.push_back(switch_block);
+
+      // save to vector
+      switch_blocks.push_back(switch_block);
+
+      // push to string map
+      blockMap.insert({"switch_" + stableState, switch_block});
+    }
+
+    // Push the state blocks
+    for (std::string stableState : stableStates) {
+      auto state_block = new mlir::Block;
+      archFunction.push_back(state_block);
+
+      // save to vector
+      state_blocks.push_back(state_block);
+
+      // push to string map
+      blockMap.insert({"state_" + stableState, state_block});
+    }
+
+    // push the exit block
+    mlir::Block *exit_block = new mlir::Block;
+    mlir::ReturnOp returnOp =
+        builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    exit_block->push_back(returnOp);
+    archFunction.push_back(exit_block);
+
+      // push to string map
+      blockMap.insert({"exit", exit_block});
+
+    // Push Branch statements to switch blocks
+    for (int i = 0; i < (int)switch_blocks.size(); i++) {
+      mlir::Block *switch_block = switch_blocks.at(i);
+      mlir::Block *true_block = state_blocks.at(i);
+      mlir::Block *false_block;
+      // False Block is either exit block or next switch block
+      if (i == (int)switch_blocks.size() - 1) {
+        false_block = exit_block;
+      } else {
+        false_block = switch_blocks.at(i + 1);
+      }
+
+      // create the operation
+      mlir::pcc::ConstantOp valOp =
+          makeConstantOp("EqualsState", 1); // TODO - this will compare to the state
+      switch_block->push_back(valOp);
+      mlir::Value v = valOp.getResult();
+
+      mlir::CondBranchOp condBrOp = builder.create<mlir::CondBranchOp>(
+          builder.getUnknownLoc(), v, true_block, false_block);
+      switch_block->push_back(condBrOp);
+    }
+
+    // generate MLIR for each process block
+    for (ProtoCCParser::Process_blockContext *processBlock: ctx->process_block()){
+      mlirGen(processBlock, blockMap);
+    }
+  };
+
+  // Generate MLIR for each Process Block in the giver architecture
+  void mlirGen(ProtoCCParser::Process_blockContext *ctx, llvm::StringMap<mlir::Block *> blockMap){
+    
+    // find the start state block to which this process is expressing
+    std::string startState = ctx->process_trans()->ID()->getText();
+    mlir::Block *stateBlock = blockMap.lookup("state_" + startState);
+
+    std::string event = ctx->process_trans()->process_events()->getText();
+
+    // Set the Builder Insertion Point
+    // builder.setInsertionPointToStart(stateBlock);
+    // builder.getInsertionPoint();
+
+
+    auto attr = builder.getBoolAttr(true);
+    mlir::ConstantOp flag = builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), attr);
+
+    mlir::scf::IfOp ifOp = builder.create<mlir::scf::IfOp>(builder.getUnknownLoc(), flag.getResult(), false);
+
+
+    // TODO - push operations to correct block
+    for(ProtoCCParser::Process_exprContext *proc_expr: ctx->process_expr()){
+      // TODO - MLIRGen for every process expression
+      // mlirGen(proc_expr, ifOp.getBody());
+    }
+
+    // push the yield
+    mlir::scf::YieldOp yield = builder.create<mlir::scf::YieldOp>(builder.getUnknownLoc());
+    ifOp.getBody()->push_back(yield);
+  }
+
+  void mlirGen(ProtoCCParser::Process_exprContext *ctx, mlir::Block *block){
+    mlir::pcc::NetworkDeclOp n = makeNetworkDeclOp("Test Network", "Ordered");
+    block->push_back(n);
+  }
+
   virtual antlrcpp::Any
   visitStable_def(ProtoCCParser::Stable_defContext *ctx) override {
     return visitChildren(ctx);
+  }
+
+  std::vector<std::string>
+  visitStable_def_mlir(ProtoCCParser::Stable_defContext *ctx) {
+
+    std::vector<std::string> states;
+
+    for (auto state : ctx->ID()) {
+      states.push_back(state->getText());
+    }
+
+    return states;
   }
 
   virtual antlrcpp::Any
@@ -436,4 +575,21 @@ public:
 private:
   mlir::ModuleOp theModule;
   mlir::OpBuilder builder;
+
+  mlir::pcc::ConstantOp makeConstantOp(const char *id, const int value) {
+    mlir::Type intType = builder.getI64Type();
+    mlir::IntegerAttr valueAttribute = mlir::IntegerAttr::get(intType, value);
+    mlir::StringAttr idAttribute = builder.getStringAttr(id);
+
+    return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
+                                                 idAttribute, valueAttribute);
+  }
+
+  mlir::pcc::NetworkDeclOp makeNetworkDeclOp(const char *id, const char *ordering) {
+    mlir::pcc::NetworkType netType =
+        mlir::pcc::NetworkType::get(builder.getContext());
+    mlir::StringAttr idAttribute = builder.getStringAttr(id);
+    mlir::StringAttr orderingAttribute = builder.getStringAttr(ordering);
+    return builder.create<mlir::pcc::NetworkDeclOp>(builder.getUnknownLoc(), netType, idAttribute, orderingAttribute);
+  }
 };
