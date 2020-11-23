@@ -70,16 +70,3 @@ llvm::ArrayRef<mlir::Type> mlir::pcc::MsgType::getElementTypes() {
   return getImpl()->elementTypes;
 }
 
-// override the printType and parseType hooks
-void mlir::pcc::PCCDialect::printType(mlir::Type type,
-                           ::mlir::DialectAsmPrinter &printer) const {
-  if (mlir::failed(generatedTypePrinter(type, printer))) {
-    // Print Non-Table Generated PCC Types
-    MsgType msgType = type.cast<mlir::pcc::MsgType>();
-
-    // Print the msg type according to the parser format.
-    printer << "msg<";
-    llvm::interleaveComma(msgType.getElementTypes(), printer);
-    printer << ">";
-  }
-}
