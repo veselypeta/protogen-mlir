@@ -1,6 +1,8 @@
 #pragma once
 
 #include "mlir/IR/Dialect.h"
+#include "PCC/Types.h"
+#include "PCC/Ops.h"
 
 namespace mlir {
 namespace pcc {

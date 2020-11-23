@@ -42,4 +42,22 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
         let results = (outs NetworkType:$output);
 }
 
+def SendOp: PCC_Op<"send", []>{
+        let summary = "Operation to send a message along a network";
+
+        let description = [{
+                Send Operations - takes two parameters. 1st parameter is the Network
+                Object along which to send the Message, 2nd parameter is the Message object.
+                Example:
+                ```mlir
+                        %0 = "pcc.send"(%0: Network, %1: Msg): (Network, Msg) -> ()
+                ```
+        }];
+
+        let arguments = (ins 
+                AnyType:$network,
+                AnyType:$msg
+        );
+}
+
 #endif // PCC_OPS

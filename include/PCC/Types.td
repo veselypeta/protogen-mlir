@@ -4,9 +4,8 @@
 class PCC_Type<string name> : TypeDef<PCC_Dialect, name> {}
 
 
-// // All of the types will extend this class.
+def PCC_MsgType : Type<CPred<"$_self.is<MsgType>()">, "PCC Msg Type">;
 
-// An alternate int type.
 def NetworkType : PCC_Type<"Network"> {
   let mnemonic = "network";
   let summary = "A Singleton Type to represent a Network";
@@ -32,4 +31,7 @@ def NetworkType : PCC_Type<"Network"> {
     return NetworkType::get(ctxt);
   }];
 }
+
+
+def PCC_Types : AnyTypeOf<[PCC_MsgType]>;
 #endif //PCC_Types
