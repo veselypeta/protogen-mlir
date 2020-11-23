@@ -60,4 +60,24 @@ def SendOp: PCC_Op<"send", []>{
         );
 }
 
+def MsgConstrOp : PCC_Op<"msg_constr", [ConstantLike, NoSideEffect]>{
+        let summary = "message constructor";
+        let description = [{
+                Construction Operation truns a literal message value into an SSA value. The data
+                is attached to the operation as attribute. The Msg constant is encoded as an
+                array of other constant values.
+                ```mlir
+                %0 = pcc.msg_constr [
+                        32: i64
+                ] : !pcc.msg<tensor<*xf64>>
+                ```
+        }];
+
+        let arguments = (ins ArrayAttr:$value);
+        let results = (outs PCC_MsgType:$output);
+
+        // let assemblyFormat = "$value attr-dict `:` type($output)";
+
+}
+
 #endif // PCC_OPS

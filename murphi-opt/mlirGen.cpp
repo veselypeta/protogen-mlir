@@ -59,6 +59,28 @@ private:
 
   mlir::OpBuilder builder;
 
+  llvm::StringMap<std::pair<mlir::Type, ProtoCCParser::Message_blockContext *>>
+      messageTypeMap;
+
+  llvm::ScopedHashTable<
+      llvm::StringRef,
+      std::pair<mlir::Value, ProtoCCParser::AssignmentContext *>>
+      symbolTable;
+  using SymbolTableScopeT = llvm::ScopedHashTableScope<
+      llvm::StringRef,
+      std::pair<mlir::Value, ProtoCCParser::AssignmentContext *>>;
+
+  // Helper function to declare a variable in the current scope - fails if
+  // variable with same name was already declared
+  mlir::LogicalResult declare(mlir::Value value, ProtoCCParser::AssignmentContext *ctx) {
+    std::string assignmentId = ctx->process_finalident()->getText();
+    if (symbolTable.count(assignmentId)) {
+      return mlir::failure();
+    }
+    symbolTable.insert(assignmentId, {value, ctx});
+    return mlir::success();
+  }
+
   mlir::LogicalResult mlirGen(ProtoCCParser::Const_declContext *ctx) {
     std::string id = ctx->ID()->getText();
     int value = std::atoi((ctx->INT())->toString().c_str());
@@ -67,10 +89,48 @@ private:
   }
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Init_hwContext *ctx) {
-    if (ctx->network_block()) {
+    if (ctx->network_block() != nullptr) {
       return mlirGen(ctx->network_block());
     }
+    if (ctx->message_block() != nullptr) {
+      std::string messageTypeId = ctx->message_block()->ID()->getText();
+      std::vector<mlir::Type> elementTypes;
+      if (messageTypeMap.count(messageTypeId)) {
+        // TODO - return mlir::emitError();
+        return mlir::failure();
+      }
+
+      // push back default message constructor values
+      mlir::Type messageId = builder.getI64Type();
+      mlir::Type sourceId = builder.getI64Type();
+      mlir::Type destId = builder.getI64Type();
+      elementTypes.push_back(messageId);
+      elementTypes.push_back(sourceId);
+      elementTypes.push_back(destId);
+
+      for (auto decl : ctx->message_block()->declarations()) {
+        mlir::Type declType = getType(decl);
+        elementTypes.push_back(declType);
+      }
+      messageTypeMap.try_emplace(messageTypeId,
+                                 mlir::pcc::MsgType::get(elementTypes),
+                                 ctx->message_block());
+      return mlir::success();
+    }
     return mlir::success();
+  }
+
+  mlir::Type getType(ProtoCCParser::DeclarationsContext *ctx) {
+    if (ctx->bool_decl() != nullptr) {
+      return builder.getI1Type();
+    }
+    if (ctx->int_decl() != nullptr) {
+      return builder.getI64Type();
+    }
+    if (ctx->data_decl() != nullptr) {
+      return mlir::pcc::DataType::get(builder.getContext());
+    }
+    return nullptr;
   }
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_blockContext *ctx) {
@@ -91,6 +151,7 @@ private:
   }
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
+
     // get the id of the architecture
     std::string id = ctx->ID()->getText();
 
@@ -121,6 +182,9 @@ private:
   }
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Process_blockContext *ctx) {
+    // Create a scope in the symbol table to hold variable declarations.
+    SymbolTableScopeT var_scope(symbolTable);
+
     ProtoCCParser::Arch_blockContext *parentArchCtx =
         dynamic_cast<ProtoCCParser::Arch_blockContext *>(ctx->parent->parent);
     if (parentArchCtx == nullptr) {
@@ -151,19 +215,20 @@ private:
   }
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Process_exprContext *ctx) {
+
     if (ctx->expressions() != nullptr) {
       return mlirGen(ctx->expressions());
     }
     if (ctx->network_send() != nullptr) {
       return mlirGen(ctx->network_send());
     }
-      return mlir::success();
+    return mlir::success();
   }
 
   // Generate correct MLIR for an expression
   mlir::LogicalResult mlirGen(ProtoCCParser::ExpressionsContext *ctx) {
     if (ctx->assignment() != nullptr) {
-      return mlirGen(ctx->assignment());
+      mlirGen(ctx->assignment());
     }
     if (ctx->conditional() != nullptr) {
       // TODO - conditional
@@ -180,21 +245,76 @@ private:
     return mlir::success();
   }
 
-  mlir::LogicalResult mlirGen(ProtoCCParser::AssignmentContext *ctx) {
-    auto finalStateId = ctx->process_finalident()->getText();
-    return mlir::success();
+  mlir::Value mlirGen(ProtoCCParser::AssignmentContext *ctx) {
+    std::string assignmentId = ctx->process_finalident()->getText();
+    if (ctx->assign_types()->message_constr() != nullptr) {
+      mlir::Value result = mlirGen(ctx->assign_types()->message_constr());
+      // if (!mlir::succeeded(declare(result, ctx))) {
+      //   return nullptr;
+      // }
+      std::cout << "var decl succeeded" << std::endl;
+      return result;
+    }
+    if (ctx->assign_types()->INT() != nullptr) {
+      int intValue = std::atoi(ctx->assign_types()->INT()->getText().c_str());
+      auto intAttr = builder.getI64IntegerAttr(intValue);
+      auto idAttr = builder.getStringAttr(assignmentId);
+      builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(), idAttr,
+                                            intAttr);
+    }
+    if (ctx->assign_types()->BOOL() != nullptr) {
+      bool value =
+          ctx->assign_types()->BOOL()->getText() == "true" ? true : false;
+      auto idAttr = builder.getStringAttr(assignmentId);
+      auto boolAttr = builder.getBoolAttr(value);
+      builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(), idAttr,
+                                            boolAttr);
+    }
+
+    return nullptr;
+  }
+
+  mlir::Value mlirGen(ProtoCCParser::Message_constrContext *ctx) {
+    std::string constrId = ctx->ID()->getText();
+    // Lookup the type
+    auto constrType = messageTypeMap.lookup(constrId);
+    mlir::ArrayAttr dataAttr;
+    mlir::Type dataType;
+    std::tie(dataAttr, dataType) = getMessageAttr(ctx);
+
+    return builder.create<mlir::pcc::MsgConstrOp>(builder.getUnknownLoc(),
+                                                  dataType, dataAttr);
+  }
+
+  std::pair<mlir::ArrayAttr, mlir::Type>
+  getMessageAttr(ProtoCCParser::Message_constrContext *ctx) {
+    std::vector<mlir::Attribute> attrElements;
+    std::vector<mlir::Type> typeElements;
+
+    // Loop over the constructor and generate the elements
+
+    attrElements.push_back(builder.getI64IntegerAttr(11));
+    typeElements.push_back(builder.getI64Type());
+
+    mlir::ArrayAttr dataAttr = builder.getArrayAttr(attrElements);
+    mlir::Type dataType = mlir::pcc::MsgType::get(typeElements);
+
+    return std::make_pair(dataAttr, dataType);
   }
 
   // Generate MLIR for Network Send
-  mlir::LogicalResult mlirGen(ProtoCCParser::Network_sendContext *ctx){
+  mlir::LogicalResult mlirGen(ProtoCCParser::Network_sendContext *ctx) {
     auto ids = ctx->ID();
     std::string netId = ids[0]->getText();
     std::string msgId = ids[1]->getText();
 
+    auto msgConstructor = symbolTable.lookup(msgId);
+
     // TODO - build a SendOp from network_decl and msg type
     // mlir::Value netInput = builder.getI64IntegerAttr(22);
     // mlir::Value msgInput = builder.getStringAttr(msgId);
-    // builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), llvm::None, llvm::None);
+    // builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), llvm::None,
+    // llvm::None);
     return mlir::success();
   }
 

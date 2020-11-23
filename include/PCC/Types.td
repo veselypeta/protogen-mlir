@@ -4,7 +4,7 @@
 class PCC_Type<string name> : TypeDef<PCC_Dialect, name> {}
 
 
-def PCC_MsgType : Type<CPred<"$_self.is<MsgType>()">, "PCC Msg Type">;
+def PCC_MsgType : Type<CPred<"$_self.isa<MsgType>()">, "PCC Msg Type">;
 
 def NetworkType : PCC_Type<"Network"> {
   let mnemonic = "network";
@@ -29,6 +29,21 @@ def NetworkType : PCC_Type<"Network"> {
         return Type();
     }
     return NetworkType::get(ctxt);
+  }];
+}
+
+def DataType : PCC_Type<"Data"> {
+  let mnemonic = "data";
+  let summary = "Singleton Type to represent Cache Line Data";
+  let description = [{
+    This is a semantic plaeholder type that represents
+    a cache line data block.
+  }];
+  let printer = [{
+    $_printer << "Data";
+  }];
+  let parser = [{
+    return Type();
   }];
 }
 

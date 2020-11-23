@@ -15,7 +15,7 @@ void PCCDialect::initialize() {
   addTypes<
 #define GET_TYPEDEF_LIST
 #include "PCC/PCCTypes.cpp.inc"
-      >();
+      , mlir::pcc::MsgType>();
 }
 
 
