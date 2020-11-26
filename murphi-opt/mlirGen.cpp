@@ -31,6 +31,7 @@ public:
   mlir::ModuleOp mlirGen(ProtoCCParser::DocumentContext *ctx) {
     // Create an empty module to which operations are added
     theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
+    // SymbolTableScopeT var_scope(symbolTable);
 
     for (auto declCtx : ctx->const_decl()) {
       mlirGen(declCtx);
@@ -43,8 +44,6 @@ public:
     for (auto archBlockCtx : ctx->arch_block()) {
       mlirGen(archBlockCtx);
     }
-
-    // theModule.dump();
 
     if (mlir::failed(mlir::verify(theModule))) {
       theModule.emitError("Module Verification Error");
@@ -74,13 +73,16 @@ private:
   // variable with same name was already declared
   mlir::LogicalResult declare(mlir::Value value,
                               ProtoCCParser::AssignmentContext *ctx) {
-    std::string assignmentId = ctx->process_finalident()->getText();
-    if (symbolTable.count(assignmentId)) {
+
+    std::string key = ctx->process_finalident()->getText();
+
+    /// --- WARNING --- THIS IS A MEMORY LEAK!!! --- This buffer needs to persist
+    char *idBuffer = (char *)malloc(sizeof(char) * key.length());
+    strcpy(idBuffer, key.c_str());
+    if (symbolTable.count(key)) {
       return mlir::failure();
     }
-    // symbolTable.insert(assignmentId, {value, ctx});
-    symbolTable.insert(assignmentId, {nullptr, nullptr});
-
+    symbolTable.insert(idBuffer, {value, ctx});
     return mlir::success();
   }
 
@@ -138,7 +140,7 @@ private:
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_blockContext *ctx) {
     for (auto netwElem : ctx->network_element()) {
-      if(mlir::failed(mlirGen(netwElem))){
+      if (mlir::failed(mlirGen(netwElem))) {
         return mlir::failure();
       }
     }
@@ -188,7 +190,7 @@ private:
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Process_blockContext *ctx) {
     // Create a scope in the symbol table to hold variable declarations.
-    // SymbolTableScopeT var_scope(symbolTable);
+    SymbolTableScopeT var_scope(symbolTable);
 
     ProtoCCParser::Arch_blockContext *parentArchCtx =
         dynamic_cast<ProtoCCParser::Arch_blockContext *>(ctx->parent->parent);
@@ -254,9 +256,10 @@ private:
     std::string assignmentId = ctx->process_finalident()->getText();
     if (ctx->assign_types()->message_constr() != nullptr) {
       mlir::Value result = mlirGen(ctx->assign_types()->message_constr());
-      // if (!mlir::succeeded(declare(result, ctx))) {
-      //   return nullptr;
-      // }
+
+      if (!mlir::succeeded(declare(result, ctx))) {
+        return nullptr;
+      }
       return result;
     }
     if (ctx->assign_types()->INT() != nullptr) {
@@ -265,9 +268,9 @@ private:
       mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
       mlir::Value result = builder.create<mlir::pcc::ConstantOp>(
           builder.getUnknownLoc(), idAttr, intAttr);
-      // if (!mlir::succeeded(declare(result, ctx))) {
-      //   return nullptr;
-      // }
+      if (!mlir::succeeded(declare(result, ctx))) {
+        return nullptr;
+      }
       return result;
     }
     if (ctx->assign_types()->BOOL() != nullptr) {
@@ -277,9 +280,9 @@ private:
       mlir::BoolAttr boolAttr = builder.getBoolAttr(value);
       mlir::Value result = builder.create<mlir::pcc::ConstantOp>(
           builder.getUnknownLoc(), idAttr, boolAttr);
-      // if (!mlir::succeeded(declare(result, ctx))) {
-      //   return nullptr;
-      // }
+      if (!mlir::succeeded(declare(result, ctx))) {
+        return nullptr;
+      }
       return result;
     }
 
@@ -321,6 +324,8 @@ private:
     std::string msgId = ids[1]->getText();
 
     auto msgConstructor = symbolTable.lookup(msgId);
+    assert(msgConstructor.first != nullptr);
+    std::cout << msgConstructor.second->getText() << std::endl;
 
     // TODO - build a SendOp from network_decl and msg type
     // mlir::Value netInput = builder.getI64IntegerAttr(22);
@@ -341,8 +346,7 @@ private:
 
   mlir::pcc::NetworkDeclOp
   makeNetworkDeclOp(const char *id, const char *ordering, antlr4::Token &tok) {
-    mlir::pcc::NetType netType =
-        mlir::pcc::NetType::get(builder.getContext());
+    mlir::pcc::NetType netType = mlir::pcc::NetType::get(builder.getContext());
     mlir::StringAttr idAttribute = builder.getStringAttr(id);
     mlir::StringAttr orderingAttribute = builder.getStringAttr(ordering);
     return builder.create<mlir::pcc::NetworkDeclOp>(

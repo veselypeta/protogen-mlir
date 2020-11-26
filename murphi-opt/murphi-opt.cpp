@@ -37,7 +37,8 @@
 
 void getAST() {
   std::ifstream stream;
-  stream.open("/Users/petrvesely/dev/mlir/mlir-standalone-template/MI.pcc", std::ifstream::in);
+  stream.open("/Users/petrvesely/dev/mlir/mlir-standalone-template/MI.pcc",
+              std::ifstream::in);
 
   antlr4::ANTLRInputStream input(stream);
   ProtoCCLexer lexer(&input);
@@ -59,8 +60,6 @@ void getAST() {
 int main(int argc, char **argv) {
   getAST();
 
-  
-  // mlir::registerAllDialects();
   mlir::registerAllPasses();
   // TODO: Register standalone passes here.
   mlir::registerPCCToMurphiPasses();
