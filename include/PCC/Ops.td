@@ -39,8 +39,10 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
 
-        let results = (outs NetworkType:$output);
+        let results = (outs PCC_NetType:$output);
 }
+
+
 
 def SendOp: PCC_Op<"send", []>{
         let summary = "Operation to send a message along a network";
@@ -75,8 +77,6 @@ def MsgConstrOp : PCC_Op<"msg_constr", [ConstantLike, NoSideEffect]>{
 
         let arguments = (ins ArrayAttr:$value);
         let results = (outs PCC_MsgType:$output);
-
-        // let assemblyFormat = "$value attr-dict `:` type($output)";
 
 }
 

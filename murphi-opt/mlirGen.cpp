@@ -72,12 +72,15 @@ private:
 
   // Helper function to declare a variable in the current scope - fails if
   // variable with same name was already declared
-  mlir::LogicalResult declare(mlir::Value value, ProtoCCParser::AssignmentContext *ctx) {
+  mlir::LogicalResult declare(mlir::Value value,
+                              ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
     if (symbolTable.count(assignmentId)) {
       return mlir::failure();
     }
-    symbolTable.insert(assignmentId, {value, ctx});
+    // symbolTable.insert(assignmentId, {value, ctx});
+    symbolTable.insert(assignmentId, {nullptr, nullptr});
+
     return mlir::success();
   }
 
@@ -135,7 +138,9 @@ private:
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_blockContext *ctx) {
     for (auto netwElem : ctx->network_element()) {
-      mlirGen(netwElem);
+      if(mlir::failed(mlirGen(netwElem))){
+        return mlir::failure();
+      }
     }
     return mlir::success();
   }
@@ -183,7 +188,7 @@ private:
 
   mlir::LogicalResult mlirGen(ProtoCCParser::Process_blockContext *ctx) {
     // Create a scope in the symbol table to hold variable declarations.
-    SymbolTableScopeT var_scope(symbolTable);
+    // SymbolTableScopeT var_scope(symbolTable);
 
     ProtoCCParser::Arch_blockContext *parentArchCtx =
         dynamic_cast<ProtoCCParser::Arch_blockContext *>(ctx->parent->parent);
@@ -252,23 +257,30 @@ private:
       // if (!mlir::succeeded(declare(result, ctx))) {
       //   return nullptr;
       // }
-      std::cout << "var decl succeeded" << std::endl;
       return result;
     }
     if (ctx->assign_types()->INT() != nullptr) {
       int intValue = std::atoi(ctx->assign_types()->INT()->getText().c_str());
-      auto intAttr = builder.getI64IntegerAttr(intValue);
-      auto idAttr = builder.getStringAttr(assignmentId);
-      builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(), idAttr,
-                                            intAttr);
+      mlir::IntegerAttr intAttr = builder.getI64IntegerAttr(intValue);
+      mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
+      mlir::Value result = builder.create<mlir::pcc::ConstantOp>(
+          builder.getUnknownLoc(), idAttr, intAttr);
+      // if (!mlir::succeeded(declare(result, ctx))) {
+      //   return nullptr;
+      // }
+      return result;
     }
     if (ctx->assign_types()->BOOL() != nullptr) {
       bool value =
           ctx->assign_types()->BOOL()->getText() == "true" ? true : false;
-      auto idAttr = builder.getStringAttr(assignmentId);
-      auto boolAttr = builder.getBoolAttr(value);
-      builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(), idAttr,
-                                            boolAttr);
+      mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
+      mlir::BoolAttr boolAttr = builder.getBoolAttr(value);
+      mlir::Value result = builder.create<mlir::pcc::ConstantOp>(
+          builder.getUnknownLoc(), idAttr, boolAttr);
+      // if (!mlir::succeeded(declare(result, ctx))) {
+      //   return nullptr;
+      // }
+      return result;
     }
 
     return nullptr;
@@ -329,8 +341,8 @@ private:
 
   mlir::pcc::NetworkDeclOp
   makeNetworkDeclOp(const char *id, const char *ordering, antlr4::Token &tok) {
-    mlir::pcc::NetworkType netType =
-        mlir::pcc::NetworkType::get(builder.getContext());
+    mlir::pcc::NetType netType =
+        mlir::pcc::NetType::get(builder.getContext());
     mlir::StringAttr idAttribute = builder.getStringAttr(id);
     mlir::StringAttr orderingAttribute = builder.getStringAttr(ordering);
     return builder.create<mlir::pcc::NetworkDeclOp>(

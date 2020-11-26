@@ -5,6 +5,7 @@
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/ADT/Sequence.h"
 #include "Passes/PCCtoMurphiPass/Passes.h"
 
 #include <memory>
@@ -52,7 +53,7 @@ void MyPass::runOnOperation() {
 
     patterns.insert<ConstantOpLowering>(&getContext());
 
-    if (failed(applyPartialConversion(getOperation(), target, patterns))){
+    if (failed(applyPartialConversion(getOperation(), target, std::move(patterns)))){
         signalPassFailure();
     }
 }

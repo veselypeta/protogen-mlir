@@ -25,5 +25,17 @@ public:
 
   size_t getNumElementTypes() { return getElementTypes().size(); }
 };
+
+class NetType
+    : public mlir::Type::TypeBase<NetType, mlir::Type, mlir::TypeStorage> {
+public:
+  using Base::Base;
+};
+
+class DataType
+    : public mlir::Type::TypeBase<NetType, mlir::Type, mlir::TypeStorage> {
+public:
+  using Base::Base;
+};
 } // namespace pcc
 } // namespace mlir

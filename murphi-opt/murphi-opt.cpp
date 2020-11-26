@@ -47,7 +47,7 @@ void getAST() {
   ProtoCCParser::DocumentContext *tree = parser.document();
 
   // Create MLIR Context
-  mlir::MLIRContext context(/*loadAllDialects=*/false);
+  mlir::MLIRContext context;
   context.getOrLoadDialect<mlir::pcc::PCCDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   getAST();
 
   
-  mlir::registerAllDialects();
+  // mlir::registerAllDialects();
   mlir::registerAllPasses();
   // TODO: Register standalone passes here.
   mlir::registerPCCToMurphiPasses();
