@@ -9,34 +9,33 @@ def PCC_NetType : Type<CPred<"$_self.isa<NetType>()">, "PCC Net Type">;
 def PCC_DataType : Type<CPred<"$_self.isa<DataType>()">, "PCC Data Type">;
 
 def TestType : PCC_Type<"Test"> {
-
 }
 
-def NetworkType : PCC_Type<"Network"> {
-  let mnemonic = "network";
-  let summary = "A Singleton Type to represent a Network";
-  let description = [{
-    This is a semanctic placeholder type
-    that represents a network on which a cache
-    can send messages.
-  }];
-  let printer = [{
-    $_printer << "Network";
-  }];
-  let parser = [{
-    // parse the less than
-    if ($_parser.parseLess()){
-        return Type();
-    }
-    if ($_parser.parseKeyword("Network")){
-        return Type();
-    }
-    if ($_parser.parseGreater()){
-        return Type();
-    }
-    return NetworkType::get(ctxt);
-  }];
-}
+// def NetworkType : PCC_Type<"Network"> {
+//   let mnemonic = "network";
+//   let summary = "A Singleton Type to represent a Network";
+//   let description = [{
+//     This is a semanctic placeholder type
+//     that represents a network on which a cache
+//     can send messages.
+//   }];
+//   let printer = [{
+//     $_printer << "Network";
+//   }];
+//   let parser = [{
+//     // parse the less than
+//     if ($_parser.parseLess()){
+//         return Type();
+//     }
+//     if ($_parser.parseKeyword("Network")){
+//         return Type();
+//     }
+//     if ($_parser.parseGreater()){
+//         return Type();
+//     }
+//     return NetworkType::get(ctxt);
+//   }];
+// }
 
 // def DataType : PCC_Type<"Data"> {
 //   let mnemonic = "data";
