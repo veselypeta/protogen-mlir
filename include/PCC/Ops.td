@@ -80,4 +80,17 @@ def MsgConstrOp : PCC_Op<"msg_constr", [ConstantLike, NoSideEffect]>{
 
 }
 
+def GlobalNetworkOp : PCC_Op<"global_network", [ConstantLike]>{
+
+        let summary = "get a reference to a global network";
+        let description = [{
+                This Operation returns and SSA value that references
+                a global network
+        }];
+
+        let arguments = (ins AnyAttr:$netId);
+        let results = (outs PCC_NetType);
+
+}
+
 #endif // PCC_OPS

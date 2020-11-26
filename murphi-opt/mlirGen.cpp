@@ -61,6 +61,8 @@ private:
   llvm::StringMap<std::pair<mlir::Type, ProtoCCParser::Message_blockContext *>>
       messageTypeMap;
 
+  llvm::StringMap<mlir::Value> globals;
+
   llvm::ScopedHashTable<
       llvm::StringRef,
       std::pair<mlir::Value, ProtoCCParser::AssignmentContext *>>
@@ -76,7 +78,8 @@ private:
 
     std::string key = ctx->process_finalident()->getText();
 
-    /// --- WARNING --- THIS IS A MEMORY LEAK!!! --- This buffer needs to persist
+    /// --- WARNING --- THIS IS A MEMORY LEAK!!! --- This buffer needs to
+    /// persist
     char *idBuffer = (char *)malloc(sizeof(char) * key.length());
     strcpy(idBuffer, key.c_str());
     if (symbolTable.count(key)) {
@@ -153,6 +156,7 @@ private:
     antlr4::Token *netToken = ctx->getStop(); // TODO - get the correct token
     mlir::pcc::NetworkDeclOp netOp = makeNetworkDeclOp(
         networkId.c_str(), networkOrdering.c_str(), *netToken);
+    globals.insert({networkId, netOp});
     theModule.push_back(netOp);
     return mlir::success();
   }
@@ -256,7 +260,6 @@ private:
     std::string assignmentId = ctx->process_finalident()->getText();
     if (ctx->assign_types()->message_constr() != nullptr) {
       mlir::Value result = mlirGen(ctx->assign_types()->message_constr());
-
       if (!mlir::succeeded(declare(result, ctx))) {
         return nullptr;
       }
@@ -328,10 +331,12 @@ private:
     std::cout << msgConstructor.second->getText() << std::endl;
 
     // TODO - build a SendOp from network_decl and msg type
-    // mlir::Value netInput = builder.getI64IntegerAttr(22);
-    // mlir::Value msgInput = builder.getStringAttr(msgId);
-    // builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), llvm::None,
-    // llvm::None);
+    mlir::StringAttr strAttr = builder.getStringAttr(netId);
+    mlir::pcc::NetType netType = mlir::pcc::NetType::get(builder.getContext());
+    mlir::Value netInput = builder.create<mlir::pcc::GlobalNetworkOp>(builder.getUnknownLoc(), netType, strAttr);
+    mlir::Value msgInput = msgConstructor.first;
+    builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), netInput,
+                                      msgInput);
     return mlir::success();
   }
 
