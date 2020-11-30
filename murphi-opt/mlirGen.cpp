@@ -28,6 +28,7 @@ class MLIRGenImpl {
 public:
   MLIRGenImpl(mlir::MLIRContext &context) : builder(&context) {}
 
+  // document : (const_decl | init_hw | arch_block | expressions) *;
   mlir::ModuleOp mlirGen(ProtoCCParser::DocumentContext *ctx) {
     // Create an empty module to which operations are added
     theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
@@ -96,6 +97,7 @@ private:
     return mlir::success();
   }
 
+  // init_hw : network_block | machines | message_block;
   mlir::LogicalResult mlirGen(ProtoCCParser::Init_hwContext *ctx) {
     if (ctx->network_block() != nullptr) {
       return mlirGen(ctx->network_block());
@@ -128,19 +130,7 @@ private:
     return mlir::success();
   }
 
-  mlir::Type getType(ProtoCCParser::DeclarationsContext *ctx) {
-    if (ctx->bool_decl() != nullptr) {
-      return builder.getI1Type();
-    }
-    if (ctx->int_decl() != nullptr) {
-      return builder.getI64Type();
-    }
-    if (ctx->data_decl() != nullptr) {
-      return mlir::pcc::DataType::get(builder.getContext());
-    }
-    return nullptr;
-  }
-
+  // network_block : NETWORK OCBRACE network_element* CCBRACE SEMICOLON;
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_blockContext *ctx) {
     for (auto netwElem : ctx->network_element()) {
       if (mlir::failed(mlirGen(netwElem))) {
@@ -150,6 +140,7 @@ private:
     return mlir::success();
   }
 
+  // network_element : element_type ID SEMICOLON;
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_elementContext *ctx) {
     std::string networkId = ctx->ID()->toString();
     std::string networkOrdering = ctx->getStart()->getText();
@@ -161,6 +152,7 @@ private:
     return mlir::success();
   }
 
+  // arch_block : ARCH ID OCBRACE arch_body CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
 
     // get the id of the architecture
@@ -183,6 +175,7 @@ private:
     return mlir::success();
   }
 
+  // arch_body: stable_def process_block*;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_bodyContext *ctx) {
     for (auto processCtx : ctx->process_block()) {
       if (mlir::failed(mlirGen(processCtx))) {
@@ -192,6 +185,7 @@ private:
     return mlir::success();
   }
 
+  // process_block : PROC process_trans OCBRACE process_expr* CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Process_blockContext *ctx) {
     // Create a scope in the symbol table to hold variable declarations.
     SymbolTableScopeT var_scope(symbolTable);
@@ -225,6 +219,8 @@ private:
     return mlir::success();
   }
 
+  // process_expr: expressions | network_send | network_mcast | network_bcast
+  // | transaction;
   mlir::LogicalResult mlirGen(ProtoCCParser::Process_exprContext *ctx) {
 
     if (ctx->expressions() != nullptr) {
@@ -239,7 +235,8 @@ private:
     return mlir::success();
   }
 
-  // Generate correct MLIR for an expression
+  // expressions : assignment | conditional | object_block | set_block |
+  // internal_event_block;
   mlir::LogicalResult mlirGen(ProtoCCParser::ExpressionsContext *ctx) {
     if (ctx->assignment() != nullptr) {
       mlirGen(ctx->assignment());
@@ -330,6 +327,11 @@ private:
     return std::make_pair(dataAttr, dataType);
   }
 
+  // object_expr : object_id | object_func;
+  // object_id:  ID;
+  // object_func : ID DOT object_idres (OBRACE object_expr* (COMMA object_expr)*
+  // CBRACE)*; 
+  // object_idres: ID | NID;
   mlir::Value mlirGen(ProtoCCParser::Object_exprContext *ctx) {
 
     if (ctx->object_id() != nullptr) {
@@ -478,6 +480,21 @@ private:
     auto col = source->getCharPositionInLine();
     auto file = source->getSourceName();
     return builder.getFileLineColLoc(builder.getIdentifier(file), line, col);
+  }
+
+  // Get Type from Declarations Context
+  // declarations : int_decl | bool_decl | state_decl | data_decl | id_decl;
+  mlir::Type getType(ProtoCCParser::DeclarationsContext *ctx) {
+    if (ctx->bool_decl() != nullptr) {
+      return builder.getI1Type();
+    }
+    if (ctx->int_decl() != nullptr) {
+      return builder.getI64Type();
+    }
+    if (ctx->data_decl() != nullptr) {
+      return mlir::pcc::DataType::get(builder.getContext());
+    }
+    return nullptr;
   }
 };
 
