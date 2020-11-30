@@ -57,8 +57,8 @@ def SendOp: PCC_Op<"send", []>{
         }];
 
         let arguments = (ins 
-                AnyType:$network,
-                AnyType:$msg
+                PCC_NetType:$network,
+                PCC_MsgType:$msg
         );
 }
 
@@ -91,6 +91,33 @@ def GlobalNetworkOp : PCC_Op<"global_network", [ConstantLike]>{
         let arguments = (ins AnyAttr:$netId);
         let results = (outs PCC_NetType);
 
+}
+
+def AwaitOp: PCC_Op<"await">{
+
+        let summary = "Start transaction Operation";
+        let description =[{}];
+        let regions = (region
+                SizedRegion<1>:$body
+        );
+}
+
+def AwaitReturnOp: PCC_Op<"await_return", [NoSideEffect, HasParent<"AwaitOp">, Terminator]>{
+        let summary = "Await Return Operation";
+        let description = [{}];
+}
+
+def WhenOp: PCC_Op<"when">{
+        let summary = "Start of a When Operation";
+        let description = [{}];
+        let regions = (region 
+                SizedRegion<1>:$body
+        );
+}
+
+def BreakOp: PCC_Op<"break", [NoSideEffect, HasParent<"WhenOp">, Terminator]>{
+        let summary = "Break out of a WhenOp";
+        let description = [{}];
 }
 
 #endif // PCC_OPS

@@ -233,6 +233,9 @@ private:
     if (ctx->network_send() != nullptr) {
       return mlirGen(ctx->network_send());
     }
+    if (ctx->transaction() != nullptr) {
+      return mlirGen(ctx->transaction());
+    }
     return mlir::success();
   }
 
@@ -256,6 +259,10 @@ private:
     return mlir::success();
   }
 
+  // assignment : process_finalident EQUALSIGN assign_types SEMICOLON;
+  // assign_types : object_expr | message_constr | math_op | set_func | INT |
+  // BOOL;
+  // math_op : val_range (PLUS | MINUS) val_range;
   mlir::Value mlirGen(ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
     if (ctx->assign_types()->message_constr() != nullptr) {
@@ -288,10 +295,13 @@ private:
       }
       return result;
     }
-
+    if (ctx->assign_types()->object_expr() != nullptr) {
+      mlir::Value obExprVal = mlirGen(ctx->assign_types()->object_expr());
+    }
     return nullptr;
   }
 
+  // message_constr : ID OBRACE message_expr* (COMMA message_expr)* CBRACE ;
   mlir::Value mlirGen(ProtoCCParser::Message_constrContext *ctx) {
     std::string constrId = ctx->ID()->getText();
     // Lookup the type
@@ -320,6 +330,102 @@ private:
     return std::make_pair(dataAttr, dataType);
   }
 
+  mlir::Value mlirGen(ProtoCCParser::Object_exprContext *ctx) {
+
+    if (ctx->object_id() != nullptr) {
+      // std::string objId = ctx->object_id()->ID()->getText();
+      // std::cout << ctx->getText() << std::endl;
+      // TODO -- This is not used in the MI Protocol
+    }
+
+    if (ctx->object_func() != nullptr) {
+      std::string objId = ctx->object_func()->ID()->getText();
+      // TODO -- handle case when NID;
+      assert(ctx->object_func()->object_idres()->ID() != nullptr);
+      std::string objAddr = ctx->object_func()->object_idres()->ID()->getText();
+
+      std::cout << ctx->getText() << std::endl;
+    }
+    return nullptr;
+  }
+
+  // transaction : AWAIT OCBRACE trans* CCBRACE;
+  mlir::LogicalResult mlirGen(ProtoCCParser::TransactionContext *ctx) {
+    // Generate a Await Operation and move builder to inside attached
+    // region
+    auto awaitOp = builder.create<mlir::pcc::AwaitOp>(builder.getUnknownLoc());
+    auto entryBlock = new mlir::Block;
+    awaitOp.getRegion().push_back(entryBlock);
+    builder.setInsertionPointToStart(entryBlock);
+
+    for (auto transCtx : ctx->trans()) {
+      if (mlir::failed(mlirGen(transCtx))) {
+        return mlir::failure();
+      }
+    }
+    // Add return Op to Region
+    builder.create<mlir::pcc::AwaitReturnOp>(builder.getUnknownLoc());
+    // Move Builder location back to next operation
+    builder.setInsertionPointAfter(awaitOp);
+    return mlir::success();
+  }
+
+  // trans : WHEN ID DDOT trans_body* ;
+  mlir::LogicalResult mlirGen(ProtoCCParser::TransContext *ctx) {
+
+    // Build the WhenOp
+    mlir::pcc::WhenOp whenOp =
+        builder.create<mlir::pcc::WhenOp>(builder.getUnknownLoc());
+    mlir::Block *entryBlock = new mlir::Block;
+    whenOp.getRegion().push_back(entryBlock);
+    builder.setInsertionPointToStart(entryBlock);
+
+    std::string msgId = ctx->ID()->getText();
+    for (auto tansBodyCtx : ctx->trans_body()) {
+      if (mlir::failed(mlirGen(tansBodyCtx))) {
+        return mlir::failure();
+      }
+    }
+
+    // reset the insertion point
+    builder.setInsertionPointAfter(whenOp);
+    return mlir::success();
+  }
+
+  // trans_body : expressions | next_trans | next_break | transaction |
+  // network_send | network_mcast | network_bcast;
+  mlir::LogicalResult mlirGen(ProtoCCParser::Trans_bodyContext *ctx) {
+    if (ctx->expressions() != nullptr) {
+      return mlirGen(ctx->expressions());
+    }
+    if (ctx->next_trans() != nullptr) {
+      // TODO - implement
+    }
+    if (ctx->next_break() != nullptr) {
+      return mlirGen(ctx->next_break());
+    }
+    if (ctx->transaction()) {
+      return mlirGen(ctx->transaction());
+    }
+    if (ctx->network_send() != nullptr) {
+      return mlirGen(ctx->network_send());
+    }
+    if (ctx->network_mcast() != nullptr) {
+      // TODO - implement
+    }
+    if (ctx->network_bcast() != nullptr) {
+      // TODO - implement
+    }
+    return mlir::success();
+  }
+
+  // next_break : BREAK SEMICOLON;
+  mlir::LogicalResult mlirGen(ProtoCCParser::Next_breakContext *ctx) {
+    // Create a Terminator Operator for the Transaction Region
+    builder.create<mlir::pcc::BreakOp>(builder.getUnknownLoc());
+    return mlir::success();
+  }
+
   // Generate MLIR for Network Send
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_sendContext *ctx) {
     auto ids = ctx->ID();
@@ -328,12 +434,11 @@ private:
 
     auto msgConstructor = symbolTable.lookup(msgId);
     assert(msgConstructor.first != nullptr);
-    std::cout << msgConstructor.second->getText() << std::endl;
 
-    // TODO - build a SendOp from network_decl and msg type
     mlir::StringAttr strAttr = builder.getStringAttr(netId);
     mlir::pcc::NetType netType = mlir::pcc::NetType::get(builder.getContext());
-    mlir::Value netInput = builder.create<mlir::pcc::GlobalNetworkOp>(builder.getUnknownLoc(), netType, strAttr);
+    mlir::Value netInput = builder.create<mlir::pcc::GlobalNetworkOp>(
+        builder.getUnknownLoc(), netType, strAttr);
     mlir::Value msgInput = msgConstructor.first;
     builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), netInput,
                                       msgInput);
