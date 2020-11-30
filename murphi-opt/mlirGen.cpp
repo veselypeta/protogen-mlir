@@ -239,7 +239,8 @@ private:
   // internal_event_block;
   mlir::LogicalResult mlirGen(ProtoCCParser::ExpressionsContext *ctx) {
     if (ctx->assignment() != nullptr) {
-      mlirGen(ctx->assignment());
+      mlir::Value assignmentValue = mlirGen(ctx->assignment());
+      return declare(assignmentValue, ctx->assignment());
     }
     if (ctx->conditional() != nullptr) {
       // TODO - conditional
@@ -262,40 +263,54 @@ private:
   // math_op : val_range (PLUS | MINUS) val_range;
   mlir::Value mlirGen(ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
+    // message_constr
     if (ctx->assign_types()->message_constr() != nullptr) {
-      mlir::Value result = mlirGen(ctx->assign_types()->message_constr());
-      if (!mlir::succeeded(declare(result, ctx))) {
-        return nullptr;
-      }
-      return result;
+      return mlirGen(ctx->assign_types()->message_constr());
     }
+    // INT
     if (ctx->assign_types()->INT() != nullptr) {
       int intValue = std::atoi(ctx->assign_types()->INT()->getText().c_str());
       mlir::IntegerAttr intAttr = builder.getI64IntegerAttr(intValue);
       mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
-      mlir::Value result = builder.create<mlir::pcc::ConstantOp>(
-          builder.getUnknownLoc(), idAttr, intAttr);
-      if (!mlir::succeeded(declare(result, ctx))) {
-        return nullptr;
-      }
-      return result;
+      return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
+                                                   idAttr, intAttr);
     }
+    // BOOL
     if (ctx->assign_types()->BOOL() != nullptr) {
       bool value =
           ctx->assign_types()->BOOL()->getText() == "true" ? true : false;
       mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
       mlir::BoolAttr boolAttr = builder.getBoolAttr(value);
-      mlir::Value result = builder.create<mlir::pcc::ConstantOp>(
-          builder.getUnknownLoc(), idAttr, boolAttr);
-      if (!mlir::succeeded(declare(result, ctx))) {
-        return nullptr;
-      }
-      return result;
+      return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
+                                                   idAttr, boolAttr);
     }
+    // object_expr
     if (ctx->assign_types()->object_expr() != nullptr) {
-      mlir::Value obExprVal = mlirGen(ctx->assign_types()->object_expr());
+      return mlirGen(ctx->assign_types()->object_expr());
+    }
+    // math_op : val_range (PLUS | MINUS) val_range;
+    if (ctx->assign_types()->math_op() != nullptr) {
+      mlir::Value lhs = mlirGen(ctx->assign_types()->math_op()->val_range()[0]);
+      mlir::Value rhs = mlirGen(ctx->assign_types()->math_op()->val_range()[1]);
+      if (ctx->assign_types()->math_op()->PLUS() != nullptr) {
+        return builder.create<mlir::AddIOp>(builder.getUnknownLoc(), lhs, rhs);
+      } else {
+        return builder.create<mlir::SubIOp>(builder.getUnknownLoc(), lhs, rhs);
+      }
     }
     return nullptr;
+  }
+
+  // val_range : INT | ID;
+  mlir::Value mlirGen(ProtoCCParser::Val_rangeContext *ctx) {
+    if (ctx->INT() != nullptr) {
+      int value = atoi(ctx->INT()->getText().c_str());
+      mlir::IntegerAttr intAttr = builder.getI64IntegerAttr(value);
+      return builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), intAttr);
+    } else {
+      std::string valueId = ctx->ID()->getText();
+      return symbolTable.lookup(valueId).first;
+    }
   }
 
   // message_constr : ID OBRACE message_expr* (COMMA message_expr)* CBRACE ;
@@ -330,13 +345,12 @@ private:
   // object_expr : object_id | object_func;
   // object_id:  ID;
   // object_func : ID DOT object_idres (OBRACE object_expr* (COMMA object_expr)*
-  // CBRACE)*; 
+  // CBRACE)*;
   // object_idres: ID | NID;
   mlir::Value mlirGen(ProtoCCParser::Object_exprContext *ctx) {
 
     if (ctx->object_id() != nullptr) {
       // std::string objId = ctx->object_id()->ID()->getText();
-      // std::cout << ctx->getText() << std::endl;
       // TODO -- This is not used in the MI Protocol
     }
 
@@ -346,7 +360,7 @@ private:
       assert(ctx->object_func()->object_idres()->ID() != nullptr);
       std::string objAddr = ctx->object_func()->object_idres()->ID()->getText();
 
-      std::cout << ctx->getText() << std::endl;
+      // Lookup the message type (Request, Ack, Resp, RespAck)
     }
     return nullptr;
   }
