@@ -199,6 +199,9 @@ private:
         parentArchCtx->ID()->getText() + "_" +
         ctx->process_trans()->ID()->getText() + "_" +
         ctx->process_trans()->process_events()->getText();
+    // Get the input arguments to the function;
+    mlir::TypeRange functionInputType =
+        getFunctionInputTypes(ctx->process_expr());
     auto func_type = builder.getFunctionType(llvm::None, llvm::None);
     auto function = builder.create<mlir::FuncOp>(builder.getUnknownLoc(),
                                                  functionName, func_type);
@@ -217,6 +220,12 @@ private:
     // Restore the insertion point
     builder.setInsertionPointAfter(function);
     return mlir::success();
+  }
+
+  mlir::TypeRange
+  getFunctionInputTypes(std::vector<ProtoCCParser::Process_exprContext *> ctx) {
+    mlir::TypeRange t;
+    return t;
   }
 
   // process_expr: expressions | network_send | network_mcast | network_bcast
@@ -322,14 +331,25 @@ private:
     mlir::Type dataType;
     std::tie(dataAttr, dataType) = getMessageAttr(ctx);
 
+    mlir::ValueRange valRange;
+
     return builder.create<mlir::pcc::MsgConstrOp>(builder.getUnknownLoc(),
                                                   dataType, dataAttr);
+    return nullptr;
   }
 
+  // message_constr : ID OBRACE message_expr* (COMMA message_expr)* CBRACE ;
   std::pair<mlir::ArrayAttr, mlir::Type>
   getMessageAttr(ProtoCCParser::Message_constrContext *ctx) {
     std::vector<mlir::Attribute> attrElements;
     std::vector<mlir::Type> typeElements;
+
+    for (auto msgExp : ctx->message_expr()) {
+      auto res = mlirGen(msgExp);
+    }
+
+    // Default Object Paracters msg/src/dest
+    // auto msgNameAttr = builder.getStringAttr();
 
     // Loop over the constructor and generate the elements
 
@@ -340,6 +360,33 @@ private:
     mlir::Type dataType = mlir::pcc::MsgType::get(typeElements);
 
     return std::make_pair(dataAttr, dataType);
+  }
+  // message_expr : object_expr | set_func | INT | BOOL | NID;
+  std::pair<mlir::Attribute, mlir::Type>
+  mlirGen(ProtoCCParser::Message_exprContext *ctx) {
+    if (ctx->object_expr() != nullptr) {
+      std::cout << ctx->object_expr()->getText() << std::endl;
+    }
+    // set_func : ID DOT set_function_types OBRACE set_nest* CBRACE;
+    if (ctx->set_func() != nullptr) {
+      // TODO -- NOT USED IN MI PROTOCOL
+    }
+    if (ctx->INT() != nullptr) {
+      int value = atoi(ctx->INT()->getText().c_str());
+      mlir::Attribute intAttr = builder.getI64IntegerAttr(value);
+      mlir::Type intType = builder.getI64Type();
+      return {intAttr, intType};
+    }
+    if (ctx->BOOL() != nullptr) {
+      bool value = ctx->BOOL()->getText() == "true";
+      mlir::Attribute boolAttr = builder.getBoolAttr(value);
+      mlir::Type boolType = builder.getI1Type();
+      return {boolAttr, boolType};
+    }
+    if (ctx->NID() != nullptr) {
+      // Refereing to its own ID
+    }
+    return {nullptr, nullptr};
   }
 
   // object_expr : object_id | object_func;
