@@ -112,13 +112,23 @@ def AwaitReturnOp: PCC_Op<"await_return", [NoSideEffect, HasParent<"AwaitOp">, T
         let description = [{}];
 }
 
-def WhenOp: PCC_Op<"when">{
+def WhenOp: PCC_Op<"when", []>{
         let summary = "Start of a When Operation";
         let description = [{}];
 
         let regions = (region 
                 SizedRegion<1>:$body
         );
+
+        let arguments = (ins 
+                StrAttr:$msgId
+        );
+
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$msgId), [{
+                        build($_builder,$_state, $_builder.getStringAttr(msgId));
+                }]>
+        ];
 }
 
 def BreakOp: PCC_Op<"break", [NoSideEffect, HasParent<"WhenOp">, Terminator]>{

@@ -467,15 +467,15 @@ private:
 
   // trans : WHEN ID DDOT trans_body* ;
   mlir::LogicalResult mlirGen(ProtoCCParser::TransContext *ctx) {
-
+    std::string msgId = ctx->ID()->getText();
     // Build the WhenOp
     mlir::pcc::WhenOp whenOp =
-        builder.create<mlir::pcc::WhenOp>(builder.getUnknownLoc());
+        builder.create<mlir::pcc::WhenOp>(builder.getUnknownLoc(), msgId);
     mlir::Block *entryBlock = new mlir::Block;
+    entryBlock->addArgument(builder.getI64Type());
     whenOp.getRegion().push_back(entryBlock);
     builder.setInsertionPointToStart(entryBlock);
 
-    std::string msgId = ctx->ID()->getText();
     for (auto tansBodyCtx : ctx->trans_body()) {
       if (mlir::failed(mlirGen(tansBodyCtx))) {
         return mlir::failure();
