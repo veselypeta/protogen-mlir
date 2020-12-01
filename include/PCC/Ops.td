@@ -17,8 +17,8 @@ def ConstantOp : PCC_Op<"constant", [ConstantLike, NoSideEffect]> {
     let results = (outs AnyType);
 
     let builders = [
-            OpBuilder<"Attribute id, Attribute value", [{
-                    build($_builder, $_state, value.getType(), id, value);
+            OpBuilderDAG<(ins "Attribute":$id, "Attribute":$value), [{
+                    build($_builder,$_state, value.getType(), id, value);
             }]>
     ];
 }
@@ -38,9 +38,10 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
         }];
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
-
         let results = (outs PCC_NetType:$output);
+
 }
+
 
 
 
@@ -77,7 +78,6 @@ def MsgConstrOp : PCC_Op<"msg_constr", [ConstantLike, NoSideEffect]>{
 
         let arguments = (ins ArrayAttr:$value);
         let results = (outs PCC_MsgType:$output);
-
 }
 
 def GlobalNetworkOp : PCC_Op<"global_network", [ConstantLike]>{
@@ -88,12 +88,17 @@ def GlobalNetworkOp : PCC_Op<"global_network", [ConstantLike]>{
                 a global network
         }];
 
-        let arguments = (ins AnyAttr:$netId);
+        let arguments = (ins StrAttr:$netId);
         let results = (outs PCC_NetType);
-
+        
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$netId), [{
+                        build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext()), $_builder.getStringAttr(netId));
+                }]>
+        ];
 }
 
-def AwaitOp: PCC_Op<"await">{
+def AwaitOp: PCC_Op<"await"> {
 
         let summary = "Start transaction Operation";
         let description =[{}];
@@ -110,6 +115,7 @@ def AwaitReturnOp: PCC_Op<"await_return", [NoSideEffect, HasParent<"AwaitOp">, T
 def WhenOp: PCC_Op<"when">{
         let summary = "Start of a When Operation";
         let description = [{}];
+
         let regions = (region 
                 SizedRegion<1>:$body
         );

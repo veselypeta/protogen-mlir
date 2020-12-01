@@ -127,6 +127,38 @@ private:
                                  ctx->message_block());
       return mlir::success();
     }
+    if(ctx->machines() != nullptr){
+      return mlirGen(ctx->machines());
+    }
+    return mlir::success();
+  }
+
+  // machines : cache_block | dir_block | mem_block;
+  mlir::LogicalResult mlirGen(ProtoCCParser::MachinesContext *ctx){
+    if(ctx->cache_block() != nullptr){
+      return mlirGen(ctx->cache_block());
+    }
+    if(ctx->dir_block() != nullptr){
+      return mlirGen(ctx->dir_block());
+    }
+    if(ctx->mem_block() != nullptr){
+      // TODO - NOT USED IN MI PROTOCOL
+    }
+    return mlir::success();
+  }
+
+  // cache_block : CACHE OCBRACE declarations* CCBRACE objset_decl* ID SEMICOLON;
+  mlir::LogicalResult mlirGen(ProtoCCParser::Cache_blockContext *ctx){
+    std::string cacheId = ctx->ID()->getText();
+    for(auto decl : ctx->declarations()){
+      mlir::Type t = getType(decl);
+    }
+
+    return mlir::success();
+  }
+
+  // dir_block : DIR OCBRACE declarations* CCBRACE objset_decl* ID SEMICOLON;
+  mlir::LogicalResult mlirGen(ProtoCCParser::Dir_blockContext *ctx){
     return mlir::success();
   }
 
@@ -202,7 +234,7 @@ private:
     // Get the input arguments to the function;
     mlir::TypeRange functionInputType =
         getFunctionInputTypes(ctx->process_expr());
-    auto func_type = builder.getFunctionType(llvm::None, llvm::None);
+    auto func_type = builder.getFunctionType(functionInputType, llvm::None);
     auto function = builder.create<mlir::FuncOp>(builder.getUnknownLoc(),
                                                  functionName, func_type);
     auto entryBlock = function.addEntryBlock();
@@ -498,10 +530,8 @@ private:
     auto msgConstructor = symbolTable.lookup(msgId);
     assert(msgConstructor.first != nullptr);
 
-    mlir::StringAttr strAttr = builder.getStringAttr(netId);
-    mlir::pcc::NetType netType = mlir::pcc::NetType::get(builder.getContext());
     mlir::Value netInput = builder.create<mlir::pcc::GlobalNetworkOp>(
-        builder.getUnknownLoc(), netType, strAttr);
+        builder.getUnknownLoc(), netId);
     mlir::Value msgInput = msgConstructor.first;
     builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), netInput,
                                       msgInput);
