@@ -9,6 +9,7 @@ namespace mlir {
 namespace pcc {
 namespace detail {
 struct MsgTypeStorage;
+struct NetTypeStorage;
 } // namespace detail
 
 // Define the Msg Type
@@ -26,13 +27,17 @@ public:
 };
 
 class NetType
-    : public mlir::Type::TypeBase<NetType, mlir::Type, mlir::TypeStorage> {
+    : public mlir::Type::TypeBase<NetType, mlir::Type, detail::NetTypeStorage> {
 public:
   using Base::Base;
+
+  static NetType get(mlir::MLIRContext *ctx, std::string ordering);
+
+  std::string getOrdering();
 };
 
 class DataType
-    : public mlir::Type::TypeBase<NetType, mlir::Type, mlir::TypeStorage> {
+    : public mlir::Type::TypeBase<DataType, mlir::Type, mlir::TypeStorage> {
 public:
   using Base::Base;
 };

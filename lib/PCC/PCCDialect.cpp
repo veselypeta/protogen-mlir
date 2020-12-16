@@ -1,6 +1,4 @@
 #include "PCC/Dialect.h"
-#include "PCC/Ops.h"
-#include "PCC/Types.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -13,7 +11,7 @@ void PCCDialect::initialize() {
 #include "PCC/PCC.cpp.inc"
       >();
 
-  addTypes<mlir::pcc::MsgType, mlir::pcc::NetType,
+  addTypes<mlir::pcc::MsgType, mlir::pcc::NetType, ::mlir::pcc::DataType,
 #define GET_TYPEDEF_LIST
 #include "PCC/PCCTypes.cpp.inc"
            >();
@@ -32,9 +30,14 @@ void mlir::pcc::PCCDialect::printType(
           llvm::interleaveComma(msgType.getElementTypes(), printer);
           printer << ">";
         })
-        .Case<mlir::pcc::NetType>([&](::mlir::Type t){
+        .Case<mlir::pcc::NetType>([&](::mlir::Type t) {
           mlir::pcc::NetType netType = t.dyn_cast<mlir::pcc::NetType>();
-          printer << "Network";
+          std::string ordering = netType.getOrdering();
+          printer << "Network<" << ordering << ">";
+        })
+        .Case<mlir::pcc::DataType>([&](::mlir::Type t){
+          mlir::pcc::DataType dataType = t.dyn_cast<mlir::pcc::DataType>();
+          printer << "Data";
         })
         .Default([](::mlir::Type) {});
   }

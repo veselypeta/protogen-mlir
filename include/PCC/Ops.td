@@ -40,6 +40,12 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
         let results = (outs PCC_NetType:$output);
 
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$netId, "std::string":$ordering), [{
+                        build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext(), ordering), $_builder.getStringAttr(netId), $_builder.getStringAttr(ordering));
+                }]>
+        ];
+
 }
 
 
@@ -93,7 +99,7 @@ def GlobalNetworkOp : PCC_Op<"global_network", [ConstantLike]>{
         
         let builders = [
                 OpBuilderDAG<(ins "std::string":$netId), [{
-                        build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext()), $_builder.getStringAttr(netId));
+                        build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext(), "Unordered"), $_builder.getStringAttr(netId));
                 }]>
         ];
 }

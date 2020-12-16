@@ -3,6 +3,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include <string>
 
 #define GET_TYPEDEF_CLASSES
 #include "PCC/PCCTypes.cpp.inc"
@@ -54,11 +55,41 @@ struct MsgTypeStorage : public mlir::TypeStorage {
   /// The following field contains the element types of the Msg Type.
   llvm::ArrayRef<mlir::Type> elementTypes;
 };
+
+struct NetTypeStorage : public mlir::TypeStorage {
+  using KeyTy = std::string;
+
+  // constructor for the type storage object
+  NetTypeStorage(std::string ordering) : ordering(ordering) {}
+
+  // define comparison operator
+  bool operator==(const KeyTy &key) const { return key == ordering; }
+
+  // define a hash function for key type
+  static llvm::hash_code hashKey(const KeyTy &key) {
+    return llvm::hash_value(key);
+  }
+
+  // define construction function
+  static KeyTy getKey(std::string ordering) { return KeyTy(ordering); }
+
+  // define a construction method
+  static NetTypeStorage *construct(mlir::TypeStorageAllocator &allocator,
+                                   const KeyTy &key) {
+
+    // allocate the storage instance and construct it
+    return new (allocator.allocate<NetTypeStorage>()) NetTypeStorage(key);
+  }
+
+  std::string ordering;
+};
+
 } // namespace detail
 } // namespace pcc
 } // namespace mlir
 
-mlir::pcc::MsgType mlir::pcc::MsgType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
+mlir::pcc::MsgType
+mlir::pcc::MsgType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected at least 1 element type");
 
   mlir::MLIRContext *ctx = elementTypes.front().getContext();
@@ -70,3 +101,11 @@ llvm::ArrayRef<mlir::Type> mlir::pcc::MsgType::getElementTypes() {
   return getImpl()->elementTypes;
 }
 
+mlir::pcc::NetType mlir::pcc::NetType::get(mlir::MLIRContext *ctx,
+                                           std::string ordering) {
+  return Base::get(ctx, ordering);
+}
+
+std::string mlir::pcc::NetType::getOrdering(){
+  return getImpl()->ordering;
+}

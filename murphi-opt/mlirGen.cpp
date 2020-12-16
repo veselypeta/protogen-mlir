@@ -90,10 +90,15 @@ private:
     return mlir::success();
   }
 
+  // const_decl : CONSTANT ID INT;
   mlir::LogicalResult mlirGen(ProtoCCParser::Const_declContext *ctx) {
     std::string id = ctx->ID()->getText();
     int value = std::atoi((ctx->INT())->toString().c_str());
-    theModule.push_back(makeConstantOp(id.c_str(), value));
+    mlir::Attribute idAttr = builder.getStringAttr(id);
+    mlir::Attribute valueAttr = builder.getI64IntegerAttr(value);
+    mlir::pcc::ConstantOp constOp = builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
+                                                   idAttr, valueAttr);
+    theModule.push_back(constOp);
     return mlir::success();
   }
 
@@ -103,7 +108,16 @@ private:
       return mlirGen(ctx->network_block());
     }
     if (ctx->message_block() != nullptr) {
-      std::string messageTypeId = ctx->message_block()->ID()->getText();
+      return mlirGen(ctx->message_block());
+    }
+    if(ctx->machines() != nullptr){
+      return mlirGen(ctx->machines());
+    }
+    return mlir::success();
+  }
+
+  mlir::LogicalResult mlirGen(ProtoCCParser::Message_blockContext *ctx){
+    std::string messageTypeId = ctx->ID()->getText();
       std::vector<mlir::Type> elementTypes;
       if (messageTypeMap.count(messageTypeId)) {
         // TODO - return mlir::emitError();
@@ -118,18 +132,13 @@ private:
       elementTypes.push_back(sourceId);
       elementTypes.push_back(destId);
 
-      for (auto decl : ctx->message_block()->declarations()) {
+      for (auto decl : ctx->declarations()) {
         mlir::Type declType = getType(decl);
         elementTypes.push_back(declType);
       }
       messageTypeMap.try_emplace(messageTypeId,
                                  mlir::pcc::MsgType::get(elementTypes),
-                                 ctx->message_block());
-      return mlir::success();
-    }
-    if(ctx->machines() != nullptr){
-      return mlirGen(ctx->machines());
-    }
+                                 ctx);
     return mlir::success();
   }
 
@@ -176,9 +185,7 @@ private:
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_elementContext *ctx) {
     std::string networkId = ctx->ID()->toString();
     std::string networkOrdering = ctx->getStart()->getText();
-    antlr4::Token *netToken = ctx->getStop(); // TODO - get the correct token
-    mlir::pcc::NetworkDeclOp netOp = makeNetworkDeclOp(
-        networkId.c_str(), networkOrdering.c_str(), *netToken);
+    mlir::pcc::NetworkDeclOp netOp = builder.create<mlir::pcc::NetworkDeclOp>(builder.getUnknownLoc(), networkId, networkOrdering);
     globals.insert({networkId, netOp});
     theModule.push_back(netOp);
     return mlir::success();
@@ -471,8 +478,10 @@ private:
     // Build the WhenOp
     mlir::pcc::WhenOp whenOp =
         builder.create<mlir::pcc::WhenOp>(builder.getUnknownLoc(), msgId);
+    // Lookup the Message type and put it in as an argument to the block
     mlir::Block *entryBlock = new mlir::Block;
-    entryBlock->addArgument(builder.getI64Type());
+    mlir::Type msgType = messageTypeMap.lookup("Resp").first; // TODO - fix
+    entryBlock->addArgument(msgType);
     whenOp.getRegion().push_back(entryBlock);
     builder.setInsertionPointToStart(entryBlock);
 
@@ -536,24 +545,6 @@ private:
     builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), netInput,
                                       msgInput);
     return mlir::success();
-  }
-
-  mlir::pcc::ConstantOp makeConstantOp(const char *id, const int value) {
-    mlir::Type intType = builder.getI64Type();
-    mlir::IntegerAttr valueAttribute = mlir::IntegerAttr::get(intType, value);
-    mlir::StringAttr idAttribute = builder.getStringAttr(id);
-
-    return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
-                                                 idAttribute, valueAttribute);
-  }
-
-  mlir::pcc::NetworkDeclOp
-  makeNetworkDeclOp(const char *id, const char *ordering, antlr4::Token &tok) {
-    mlir::pcc::NetType netType = mlir::pcc::NetType::get(builder.getContext());
-    mlir::StringAttr idAttribute = builder.getStringAttr(id);
-    mlir::StringAttr orderingAttribute = builder.getStringAttr(ordering);
-    return builder.create<mlir::pcc::NetworkDeclOp>(
-        getLoc(tok), netType, idAttribute, orderingAttribute);
   }
 
   std::vector<std::string>
