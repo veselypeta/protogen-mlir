@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mlir/IR/Types.h"
+#include "mlir/IR/Attributes.h"
 
 #define GET_TYPEDEF_CLASSES
 #include "PCC/PCCTypes.h.inc"
@@ -10,6 +11,8 @@ namespace pcc {
 namespace detail {
 struct MsgTypeStorage;
 struct NetTypeStorage;
+struct StateTypeStorage;
+// struct StateAttributeStorage;
 } // namespace detail
 
 // Define the Msg Type
@@ -41,5 +44,32 @@ class DataType
 public:
   using Base::Base;
 };
+
+class IDType
+    : public mlir::Type::TypeBase<IDType, mlir::Type, mlir::TypeStorage> {
+public:
+  using Base::Base;
+};
+
+class StateType : public mlir::Type::TypeBase<StateType, mlir::Type,
+                                              detail::StateTypeStorage> {
+public:
+  using Base::Base;
+
+  static StateType get(mlir::MLIRContext *ctx, std::string state);
+
+  std::string getState();
+};
+
+// class StateAttr
+//     : public mlir::Attribute::AttrBase<StateAttr, mlir::Attribute,
+//                                        detail::StateAttributeStorage> {
+// public:
+//   using Base::Base;
+
+//   static StateAttr get(mlir::pcc::StateType value);
+
+//   mlir::pcc::StateType getValue() const;
+// };
 } // namespace pcc
 } // namespace mlir

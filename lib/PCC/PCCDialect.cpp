@@ -12,6 +12,7 @@ void PCCDialect::initialize() {
       >();
 
   addTypes<mlir::pcc::MsgType, mlir::pcc::NetType, ::mlir::pcc::DataType,
+           mlir::pcc::IDType,
 #define GET_TYPEDEF_LIST
 #include "PCC/PCCTypes.cpp.inc"
            >();
@@ -35,9 +36,17 @@ void mlir::pcc::PCCDialect::printType(
           std::string ordering = netType.getOrdering();
           printer << "Network<" << ordering << ">";
         })
-        .Case<mlir::pcc::DataType>([&](::mlir::Type t){
+        .Case<mlir::pcc::DataType>([&](::mlir::Type t) {
           mlir::pcc::DataType dataType = t.dyn_cast<mlir::pcc::DataType>();
           printer << "Data";
+        })
+        .Case<mlir::pcc::IDType>([&](::mlir::Type t) {
+          mlir::pcc::IDType idType = t.dyn_cast<mlir::pcc::IDType>();
+          printer << "ID";
+        })
+        .Case<mlir::pcc::StateType>([&](::mlir::Type t) {
+          mlir::pcc::StateType stateType = t.dyn_cast<mlir::pcc::StateType>();
+          printer << "State<" << stateType.getState() << ">";
         })
         .Default([](::mlir::Type) {});
   }

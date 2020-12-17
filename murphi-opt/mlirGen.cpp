@@ -125,9 +125,9 @@ private:
       }
 
       // push back default message constructor values
-      mlir::Type messageId = builder.getI64Type();
-      mlir::Type sourceId = builder.getI64Type();
-      mlir::Type destId = builder.getI64Type();
+      mlir::Type messageId = mlir::pcc::IDType::get(builder.getContext());
+      mlir::Type sourceId = mlir::pcc::IDType::get(builder.getContext());
+      mlir::Type destId = mlir::pcc::IDType::get(builder.getContext());
       elementTypes.push_back(messageId);
       elementTypes.push_back(sourceId);
       elementTypes.push_back(destId);
@@ -311,6 +311,16 @@ private:
   // math_op : val_range (PLUS | MINUS) val_range;
   mlir::Value mlirGen(ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
+    
+    // TODO Special cases {State, cl, owner ...} -- Hardcode for now!!
+    if(assignmentId == "State"){
+      std::string stateId = ctx->assign_types()->getText();
+      mlir::pcc::StateType stateType = mlir::pcc::StateType::get(builder.getContext(), stateId);
+      mlir::TypeAttr typeAttr = mlir::TypeAttr::get(stateType);
+      // auto stateDecl = builder.create<mlir::ConstantOp>(builder.getContext(), stateType, valueAttr);
+    }
+
+
     // message_constr
     if (ctx->assign_types()->message_constr() != nullptr) {
       return mlirGen(ctx->assign_types()->message_constr());
@@ -404,7 +414,7 @@ private:
   std::pair<mlir::Attribute, mlir::Type>
   mlirGen(ProtoCCParser::Message_exprContext *ctx) {
     if (ctx->object_expr() != nullptr) {
-      std::cout << ctx->object_expr()->getText() << std::endl;
+      // std::cout << ctx->object_expr()->getText() << std::endl;
     }
     // set_func : ID DOT set_function_types OBRACE set_nest* CBRACE;
     if (ctx->set_func() != nullptr) {
@@ -575,6 +585,9 @@ private:
     }
     if (ctx->data_decl() != nullptr) {
       return mlir::pcc::DataType::get(builder.getContext());
+    }
+    if (ctx->id_decl() != nullptr){
+      return mlir::pcc::IDType::get(builder.getContext());
     }
     return nullptr;
   }

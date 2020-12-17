@@ -84,10 +84,35 @@ struct NetTypeStorage : public mlir::TypeStorage {
   std::string ordering;
 };
 
+struct StateTypeStorage : public mlir::TypeStorage{
+  StateTypeStorage(std::string state) : state(state) {}
+
+  using KeyTy = std::string;
+
+  bool operator==(const KeyTy &key) const {
+    return key == state;
+  }
+
+  static llvm::hash_code hashKey(const KeyTy &key){
+    return llvm::hash_value(key);
+  }
+
+  static KeyTy getKey(std::string state){
+    return KeyTy(state);
+  }
+
+  static StateTypeStorage *construct(TypeStorageAllocator &allocator, const KeyTy &key){
+    return new (allocator.allocate<StateTypeStorage>()) StateTypeStorage(key);
+  }
+
+  std::string state;
+};
+
 } // namespace detail
 } // namespace pcc
 } // namespace mlir
 
+// ---------- MsgType ----------
 mlir::pcc::MsgType
 mlir::pcc::MsgType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected at least 1 element type");
@@ -101,6 +126,7 @@ llvm::ArrayRef<mlir::Type> mlir::pcc::MsgType::getElementTypes() {
   return getImpl()->elementTypes;
 }
 
+// ---------- NetType ----------
 mlir::pcc::NetType mlir::pcc::NetType::get(mlir::MLIRContext *ctx,
                                            std::string ordering) {
   return Base::get(ctx, ordering);
@@ -109,3 +135,16 @@ mlir::pcc::NetType mlir::pcc::NetType::get(mlir::MLIRContext *ctx,
 std::string mlir::pcc::NetType::getOrdering(){
   return getImpl()->ordering;
 }
+
+// ---------- StateType ----------
+
+mlir::pcc::StateType mlir::pcc::StateType::get(mlir::MLIRContext *ctx, std::string state){
+  return Base::get(ctx, state);
+}
+
+std::string mlir::pcc::StateType::getState(){
+  return getImpl()->state;
+}
+
+
+////////// --- Attributes --- //////////

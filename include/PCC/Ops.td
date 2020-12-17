@@ -142,4 +142,11 @@ def BreakOp: PCC_Op<"break", [NoSideEffect, HasParent<"WhenOp">, Terminator]>{
         let description = [{}];
 }
 
+def SetOp: PCC_Op<"set", []>{
+        let summary = "Assign an SSA value to a global";
+        let description = [{}];
+
+        let arguments = (ins AnyAttr:$id, AnyType:$value);
+}
+
 #endif // PCC_OPS
