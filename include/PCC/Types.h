@@ -12,7 +12,6 @@ namespace detail {
 struct MsgTypeStorage;
 struct NetTypeStorage;
 struct StateTypeStorage;
-// struct StateAttributeStorage;
 } // namespace detail
 
 // Define the Msg Type
@@ -61,15 +60,5 @@ public:
   std::string getState();
 };
 
-// class StateAttr
-//     : public mlir::Attribute::AttrBase<StateAttr, mlir::Attribute,
-//                                        detail::StateAttributeStorage> {
-// public:
-//   using Base::Base;
-
-//   static StateAttr get(mlir::pcc::StateType value);
-
-//   mlir::pcc::StateType getValue() const;
-// };
 } // namespace pcc
 } // namespace mlir

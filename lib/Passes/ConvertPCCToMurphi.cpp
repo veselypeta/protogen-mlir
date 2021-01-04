@@ -46,8 +46,9 @@ void MyPass::runOnOperation() {
     mlir::ConversionTarget target(getContext());
 
     // We cant to convert PCC to Murphi
-    target.addLegalDialect<murphi::MurphiDialect>();
-    target.addIllegalDialect<pcc::PCCDialect>();
+    // target.addLegalDialect<murphi::MurphiDialect>();
+    // target.addIllegalDialect<pcc::PCCDialect>();
+    target.addIllegalOp<pcc::ConstantOp>();
 
     OwningRewritePatternList patterns;
 
@@ -57,8 +58,6 @@ void MyPass::runOnOperation() {
         signalPassFailure();
     }
 }
-
-
 
 
 // this is a function that returns the created pass

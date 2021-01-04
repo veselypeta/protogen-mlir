@@ -1,4 +1,5 @@
 #include "PCC/Dialect.h"
+#include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -12,7 +13,7 @@ void PCCDialect::initialize() {
       >();
 
   addTypes<mlir::pcc::MsgType, mlir::pcc::NetType, ::mlir::pcc::DataType,
-           mlir::pcc::IDType,
+           mlir::pcc::IDType, mlir::pcc::StateType, 
 #define GET_TYPEDEF_LIST
 #include "PCC/PCCTypes.cpp.inc"
            >();

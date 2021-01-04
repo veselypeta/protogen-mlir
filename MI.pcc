@@ -84,7 +84,6 @@ Architecture cache {
                 break;
         }
     }
-
 }
 
 Architecture directory {

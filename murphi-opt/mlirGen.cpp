@@ -96,8 +96,8 @@ private:
     int value = std::atoi((ctx->INT())->toString().c_str());
     mlir::Attribute idAttr = builder.getStringAttr(id);
     mlir::Attribute valueAttr = builder.getI64IntegerAttr(value);
-    mlir::pcc::ConstantOp constOp = builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
-                                                   idAttr, valueAttr);
+    mlir::pcc::ConstantOp constOp = builder.create<mlir::pcc::ConstantOp>(
+        builder.getUnknownLoc(), idAttr, valueAttr);
     theModule.push_back(constOp);
     return mlir::success();
   }
@@ -110,56 +110,56 @@ private:
     if (ctx->message_block() != nullptr) {
       return mlirGen(ctx->message_block());
     }
-    if(ctx->machines() != nullptr){
+    if (ctx->machines() != nullptr) {
       return mlirGen(ctx->machines());
     }
     return mlir::success();
   }
 
-  mlir::LogicalResult mlirGen(ProtoCCParser::Message_blockContext *ctx){
+  mlir::LogicalResult mlirGen(ProtoCCParser::Message_blockContext *ctx) {
     std::string messageTypeId = ctx->ID()->getText();
-      std::vector<mlir::Type> elementTypes;
-      if (messageTypeMap.count(messageTypeId)) {
-        // TODO - return mlir::emitError();
-        return mlir::failure();
-      }
+    std::vector<mlir::Type> elementTypes;
+    if (messageTypeMap.count(messageTypeId)) {
+      // TODO - return mlir::emitError();
+      return mlir::failure();
+    }
 
-      // push back default message constructor values
-      mlir::Type messageId = mlir::pcc::IDType::get(builder.getContext());
-      mlir::Type sourceId = mlir::pcc::IDType::get(builder.getContext());
-      mlir::Type destId = mlir::pcc::IDType::get(builder.getContext());
-      elementTypes.push_back(messageId);
-      elementTypes.push_back(sourceId);
-      elementTypes.push_back(destId);
+    // push back default message constructor values
+    mlir::Type messageId = mlir::pcc::IDType::get(builder.getContext());
+    mlir::Type sourceId = mlir::pcc::IDType::get(builder.getContext());
+    mlir::Type destId = mlir::pcc::IDType::get(builder.getContext());
+    elementTypes.push_back(messageId);
+    elementTypes.push_back(sourceId);
+    elementTypes.push_back(destId);
 
-      for (auto decl : ctx->declarations()) {
-        mlir::Type declType = getType(decl);
-        elementTypes.push_back(declType);
-      }
-      messageTypeMap.try_emplace(messageTypeId,
-                                 mlir::pcc::MsgType::get(elementTypes),
-                                 ctx);
+    for (auto decl : ctx->declarations()) {
+      mlir::Type declType = getType(decl);
+      elementTypes.push_back(declType);
+    }
+    messageTypeMap.try_emplace(messageTypeId,
+                               mlir::pcc::MsgType::get(elementTypes), ctx);
     return mlir::success();
   }
 
   // machines : cache_block | dir_block | mem_block;
-  mlir::LogicalResult mlirGen(ProtoCCParser::MachinesContext *ctx){
-    if(ctx->cache_block() != nullptr){
+  mlir::LogicalResult mlirGen(ProtoCCParser::MachinesContext *ctx) {
+    if (ctx->cache_block() != nullptr) {
       return mlirGen(ctx->cache_block());
     }
-    if(ctx->dir_block() != nullptr){
+    if (ctx->dir_block() != nullptr) {
       return mlirGen(ctx->dir_block());
     }
-    if(ctx->mem_block() != nullptr){
+    if (ctx->mem_block() != nullptr) {
       // TODO - NOT USED IN MI PROTOCOL
     }
     return mlir::success();
   }
 
-  // cache_block : CACHE OCBRACE declarations* CCBRACE objset_decl* ID SEMICOLON;
-  mlir::LogicalResult mlirGen(ProtoCCParser::Cache_blockContext *ctx){
+  // cache_block : CACHE OCBRACE declarations* CCBRACE objset_decl* ID
+  // SEMICOLON;
+  mlir::LogicalResult mlirGen(ProtoCCParser::Cache_blockContext *ctx) {
     std::string cacheId = ctx->ID()->getText();
-    for(auto decl : ctx->declarations()){
+    for (auto decl : ctx->declarations()) {
       mlir::Type t = getType(decl);
     }
 
@@ -167,7 +167,7 @@ private:
   }
 
   // dir_block : DIR OCBRACE declarations* CCBRACE objset_decl* ID SEMICOLON;
-  mlir::LogicalResult mlirGen(ProtoCCParser::Dir_blockContext *ctx){
+  mlir::LogicalResult mlirGen(ProtoCCParser::Dir_blockContext *ctx) {
     return mlir::success();
   }
 
@@ -185,7 +185,8 @@ private:
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_elementContext *ctx) {
     std::string networkId = ctx->ID()->toString();
     std::string networkOrdering = ctx->getStart()->getText();
-    mlir::pcc::NetworkDeclOp netOp = builder.create<mlir::pcc::NetworkDeclOp>(builder.getUnknownLoc(), networkId, networkOrdering);
+    mlir::pcc::NetworkDeclOp netOp = builder.create<mlir::pcc::NetworkDeclOp>(
+        builder.getUnknownLoc(), networkId, networkOrdering);
     globals.insert({networkId, netOp});
     theModule.push_back(netOp);
     return mlir::success();
@@ -288,6 +289,7 @@ private:
   mlir::LogicalResult mlirGen(ProtoCCParser::ExpressionsContext *ctx) {
     if (ctx->assignment() != nullptr) {
       mlir::Value assignmentValue = mlirGen(ctx->assignment());
+      // DECLARE IS FLAWED
       return declare(assignmentValue, ctx->assignment());
     }
     if (ctx->conditional() != nullptr) {
@@ -311,15 +313,23 @@ private:
   // math_op : val_range (PLUS | MINUS) val_range;
   mlir::Value mlirGen(ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
-    
-    // TODO Special cases {State, cl, owner ...} -- Hardcode for now!!
-    if(assignmentId == "State"){
-      std::string stateId = ctx->assign_types()->getText();
-      mlir::pcc::StateType stateType = mlir::pcc::StateType::get(builder.getContext(), stateId);
-      mlir::TypeAttr typeAttr = mlir::TypeAttr::get(stateType);
-      // auto stateDecl = builder.create<mlir::ConstantOp>(builder.getContext(), stateType, valueAttr);
-    }
 
+    // TODO Special cases {State, cl, owner ...} -- Hardcode for now!!
+    if (assignmentId == "State") {
+      // Get the rerpr. of the State i.e. M, I ...
+      std::string stateId = ctx->assign_types()->getText();
+      // Make the state Type
+      mlir::pcc::StateType stateType =
+          mlir::pcc::StateType::get(builder.getContext(), stateId);
+      mlir::TypeAttr stateAttr = mlir::TypeAttr::get(stateType);
+      mlir::StringAttr idAttribute = builder.getStringAttr(assignmentId);
+      // Declare State as a Constant to get SSA value
+      auto stateValue = builder.create<mlir::pcc::ConstantOp>(
+          builder.getUnknownLoc(), stateType, idAttribute, stateAttr);
+      // Declare the Set State operation
+      builder.create<mlir::pcc::SetOp>(builder.getUnknownLoc(), idAttribute,
+                                       stateValue);
+    }
 
     // message_constr
     if (ctx->assign_types()->message_constr() != nullptr) {
@@ -393,17 +403,42 @@ private:
     std::vector<mlir::Attribute> attrElements;
     std::vector<mlir::Type> typeElements;
 
-    for (auto msgExp : ctx->message_expr()) {
-      auto res = mlirGen(msgExp);
+    std::vector<ProtoCCParser::Message_exprContext *> allMsgExpr =
+        ctx->message_expr();
+    // Default Object Paracters msg/src/dest
+    // TODO -- String Attr Return None
+    // Msg ID
+    mlir::Attribute msgAttribute =
+        builder.getStringAttr(allMsgExpr[0]->getText());
+    attrElements.push_back(msgAttribute);
+    typeElements.push_back(msgAttribute.getType());
+
+    // Src - TODO -> How to implement???
+    mlir::Attribute srcAttribute =
+        builder.getStringAttr(allMsgExpr[1]->getText());
+    attrElements.push_back(srcAttribute);
+    typeElements.push_back(srcAttribute.getType());
+
+    // Dest
+    mlir::Attribute dstAttribute =
+        builder.getStringAttr(allMsgExpr[2]->getText());
+    attrElements.push_back(dstAttribute);
+    typeElements.push_back(dstAttribute.getType());
+
+
+    // Add Optional Parameter
+    for (u_long i=3; i < allMsgExpr.size(); i++) {
+      auto res = mlirGen(allMsgExpr[i]);
+      // attrElements.push_back(res.first);
+      // typeElements.push_back(res.second);
     }
 
-    // Default Object Paracters msg/src/dest
     // auto msgNameAttr = builder.getStringAttr();
 
     // Loop over the constructor and generate the elements
 
-    attrElements.push_back(builder.getI64IntegerAttr(11));
-    typeElements.push_back(builder.getI64Type());
+    // attrElements.push_back(builder.getI64IntegerAttr(11));
+    // typeElements.push_back(builder.getI64Type());
 
     mlir::ArrayAttr dataAttr = builder.getArrayAttr(attrElements);
     mlir::Type dataType = mlir::pcc::MsgType::get(typeElements);
@@ -586,7 +621,7 @@ private:
     if (ctx->data_decl() != nullptr) {
       return mlir::pcc::DataType::get(builder.getContext());
     }
-    if (ctx->id_decl() != nullptr){
+    if (ctx->id_decl() != nullptr) {
       return mlir::pcc::IDType::get(builder.getContext());
     }
     return nullptr;

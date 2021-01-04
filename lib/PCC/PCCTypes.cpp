@@ -145,6 +145,3 @@ mlir::pcc::StateType mlir::pcc::StateType::get(mlir::MLIRContext *ctx, std::stri
 std::string mlir::pcc::StateType::getState(){
   return getImpl()->state;
 }
-
-
-////////// --- Attributes --- //////////
