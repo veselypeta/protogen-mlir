@@ -22,7 +22,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "Murphi/MurphiDialect.h"
+#include "Murphi/Dialect.h"
 #include "PCC/Dialect.h"
 #include "PCC/Ops.h"
 #include "PCC/Types.h"
@@ -35,6 +35,8 @@
 #include "ProtoCCVisitor.h"
 
 #include "mlirGen.h"
+
+#include "Target/TranslateToMurphi.h"
 
 int loadMLIR(mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   std::ifstream stream;
@@ -65,10 +67,10 @@ int loadAndProcessMLIR(mlir::MLIRContext &context,
   mlir::applyPassManagerCLOptions(pm);
 
   // TODO -- passes not working correctly
-  // pm.addPass(mlir::createLowerToMurphiPass());
-  // if (mlir::failed(pm.run(*module))) {
-  //   return 4;
-  // }
+  pm.addPass(mlir::createLowerToMurphiPass());
+  if (mlir::failed(pm.run(*module))) {
+    return 4;
+  }
   return 0;
 }
 
@@ -80,6 +82,7 @@ int main(int argc, char **argv) {
   // Create MLIR Context
   mlir::MLIRContext context;
   context.getOrLoadDialect<mlir::pcc::PCCDialect>();
+  context.getOrLoadDialect<mlir::murphi::MurphiDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
 

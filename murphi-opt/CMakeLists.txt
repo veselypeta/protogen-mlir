@@ -4,7 +4,6 @@ set(LIBS
         ${dialect_libs}
         ${conversion_libs}
         MLIROptLib
-        MLIRStandalone
         antlr4_static
         )
 

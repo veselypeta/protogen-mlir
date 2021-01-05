@@ -1,0 +1,10 @@
+-- Build
+
+cmake --build .
+
+
+-- Run murphi-opt
+./bin/murphi-opt
+
+-- run murphi-translate
+./bin/murphi-translate ../test-murphi.mlir --mlir-to-murphi

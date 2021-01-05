@@ -1,7 +1,7 @@
 #include "PCC/Dialect.h"
 #include "PCC/Ops.h"
-#include "Murphi/MurphiDialect.h"
-#include "Murphi/MurphiOps.h"
+#include "Murphi/Dialect.h"
+#include "Murphi/Ops.h"
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -22,7 +22,7 @@ struct ConstantOpLowering: public OpRewritePattern<mlir::pcc::ConstantOp> {
 
     using OpRewritePattern<mlir::pcc::ConstantOp>::OpRewritePattern;
 
-    mlir::LogicalResult  matchAndRewrite(mlir::pcc::ConstantOp op, PatternRewriter &rewriter) const final {
+    mlir::LogicalResult matchAndRewrite(mlir::pcc::ConstantOp op, PatternRewriter &rewriter) const final {
 
         rewriter.replaceOpWithNewOp<mlir::murphi::ConstantOp>(op, op.getAttr("id"), op.getAttr("value"));
         return success();
@@ -48,7 +48,7 @@ void MyPass::runOnOperation() {
     // We cant to convert PCC to Murphi
     // target.addLegalDialect<murphi::MurphiDialect>();
     // target.addIllegalDialect<pcc::PCCDialect>();
-    target.addIllegalOp<pcc::ConstantOp>();
+    // target.addIllegalOp<pcc::ConstantOp>();
 
     OwningRewritePatternList patterns;
 

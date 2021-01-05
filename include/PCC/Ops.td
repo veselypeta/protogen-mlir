@@ -1,7 +1,7 @@
 #ifndef PCC_OPS
 #define PCC_OPS
-
-def ConstantOp : PCC_Op<"constant", [ConstantLike, NoSideEffect]> {
+// Add ConstantLike
+def ConstantOp : PCC_Op<"constant", [NoSideEffect]> {
     let summary = "constant";
     let description = [{
             Constant operation produces an SSA value of some constant value
@@ -69,7 +69,8 @@ def SendOp: PCC_Op<"send", []>{
         );
 }
 
-def MsgConstrOp : PCC_Op<"msg_constr", [ConstantLike, NoSideEffect]>{
+// Add ConstantLike
+def MsgConstrOp : PCC_Op<"msg_constr", [NoSideEffect]>{
         let summary = "message constructor";
         let description = [{
                 Construction Operation truns a literal message value into an SSA value. The data
@@ -86,7 +87,8 @@ def MsgConstrOp : PCC_Op<"msg_constr", [ConstantLike, NoSideEffect]>{
         let results = (outs PCC_MsgType:$output);
 }
 
-def GlobalNetworkOp : PCC_Op<"global_network", [ConstantLike]>{
+// Add ConstantLike
+def GlobalNetworkOp : PCC_Op<"global_network", []>{
 
         let summary = "get a reference to a global network";
         let description = [{

@@ -1,15 +1,10 @@
-//===- MurphiDialect.td - Murphi dialect -----------*- tablegen -*-===//
-//
-// This file is licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-
 #ifndef MURPHI_DIALECT
 #define MURPHI_DIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
 
 //===----------------------------------------------------------------------===//
 // Murphi dialect definition.
@@ -27,9 +22,12 @@ def Murphi_Dialect : Dialect {
 //===----------------------------------------------------------------------===//
 // Base Murphi operation definition.
 //===----------------------------------------------------------------------===//
-
 class Murphi_Op<string mnemonic, list<OpTrait> traits = []> :
         Op<Murphi_Dialect, mnemonic, traits>;
+
+
+include "Types.td"
+include "Ops.td"
 
 
 #endif // MURPHI_DIALECT

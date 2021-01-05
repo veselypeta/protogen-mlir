@@ -8,11 +8,8 @@
 
 #ifndef MURPHI_OPS
 #define MURPHI_OPS
-
-include "MurphiDialect.td"
-include "mlir/Interfaces/SideEffectInterfaces.td"
-
-def ConstantOp : Murphi_Op<"constant", [ConstantLike, NoSideEffect, HasParent<"ConstantDecl">]> {
+// Add ConstantLike
+def ConstantOp : Murphi_Op<"constant", [NoSideEffect]> {
     let summary = "constant";
     let description = [{
             Constant operation produces an SSA value of some constant value
@@ -20,7 +17,7 @@ def ConstantOp : Murphi_Op<"constant", [ConstantLike, NoSideEffect, HasParent<"C
 
             Example:
             ```mlir
-            %0 = "murphi.constant"() {value = 32: i32, id = "nrCaches"} : () -> i32
+            %0 = "pcc.constant"() {value = 32: i32, id = "nrCaches"} : () -> i32
             ```
     }];
 
@@ -28,8 +25,8 @@ def ConstantOp : Murphi_Op<"constant", [ConstantLike, NoSideEffect, HasParent<"C
     let results = (outs AnyType);
 
     let builders = [
-            OpBuilder<"Attribute id, Attribute value", [{
-                    build($_builder, $_state, value.getType(), id, value);
+            OpBuilderDAG<(ins "Attribute":$id, "Attribute":$value), [{
+                    build($_builder,$_state, value.getType(), id, value);
             }]>
     ];
 }

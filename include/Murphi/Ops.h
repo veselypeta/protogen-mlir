@@ -14,6 +14,6 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
 #define GET_OP_CLASSES
-#include "Murphi/MurphiOps.h.inc"
+#include "Murphi/Murphi.h.inc"
 
 #endif // MURPHI_MURPHIOPS_H
