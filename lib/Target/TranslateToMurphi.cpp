@@ -192,11 +192,13 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     llvm::interleave(paramMap, output, "; ");
     output << ") : " << returnType << ";\n";
 
-    
-    // TODO Walk Nested Operations Here
+
+    // TODO Walk Var Decl Operations here
 
     output << "begin\n";
-    op.walk([&](mlir::murphi::RecordOp r) { output << "Return Op was here"; });
+
+    // TODO Walk Nested Operations Here
+
     output << "end;\n";
   });
 
