@@ -13,19 +13,20 @@ public:
   virtual ~MurphiReference(){};
 };
 
-class MurphiType {
+class MurphiType: public MurphiReference {
 public:
     virtual void print(mlir::raw_ostream &stream) {
         throw new std::exception();
     };
+    virtual std::string getDefiningId(){throw new std::exception();}
     virtual ~MurphiType(){};
 };
 
-class MurphiConstantDeclaration : public MurphiReference {
+class MurphiConstantDeclaration : public MurphiType {
 public:
   MurphiConstantDeclaration(std::string constId, int constValue)
       : id{constId}, value{constValue} {}
-  void print(mlir::raw_ostream &stream);
+  virtual void print(mlir::raw_ostream &stream);
   virtual std::string getDefiningId() { return id; };
 
 private:
@@ -33,7 +34,7 @@ private:
   int value;
 };
 
-class MurphiEnumDeclaration : public MurphiReference, MurphiType {
+class MurphiEnumDeclaration : public MurphiType {
 public:
   MurphiEnumDeclaration(std::string enumId, std::vector<std::string> enumValues)
       : id{enumId}, enums{enumValues} {}
@@ -47,8 +48,8 @@ private:
 
 class MurphiModule {
 public:
-  bool addConstant(std::string id, int value);
-  bool addEnum(std::string id, std::vector<std::string> enumList);
+  bool addConstant(target::MurphiConstantDeclaration constDecl);
+  bool addEnum(target::MurphiEnumDeclaration enumDecl);
   bool addType(MurphiType t);
   void print(mlir::raw_ostream &stream);
 

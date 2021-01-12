@@ -236,20 +236,20 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
 // Perform house keeping tasks here -- setup the file correctly
 void addBoilerplateConstants(target::MurphiModule &m) {
   // VAL_COUNT: 1;
-  m.addConstant("VAL_COUNT", 1);
+  m.addConstant(target::MurphiConstantDeclaration("VAL_COUNT", 1));
 
   // ADR_COUNT: 1;
-  m.addConstant("ADR_COUNT", 1);
+  m.addConstant(target::MurphiConstantDeclaration("ADR_COUNT", 1));
 
   // O_NET_MAX: 12;
   // U_NET_MAX: 12;
-  m.addConstant("O_NET_MAX", 1);
-  m.addConstant("VAL_COUNT", 1);
+  m.addConstant(target::MurphiConstantDeclaration("O_NET_MAX", 1));
+  m.addConstant(target::MurphiConstantDeclaration("VAL_COUNT", 1));
 }
 
 void addAccessEnum(target::MurphiModule &m) {
   std::vector<std::string> enumList = {"load", "store", "none"};
-  m.addEnum("Access", enumList);
+  m.addEnum(target::MurphiEnumDeclaration("Access", enumList));
 }
 
 void addAddressesAndCl(target::MurphiModule &m){
@@ -267,7 +267,10 @@ target::MurphiModule createModule(mlir::ModuleOp op,
     int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
     std::string id =
         constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    m.addConstant(id, value);
+    
+    target::MurphiConstantDeclaration constDecl(id, value);
+    m.addConstant(constDecl);
+
     return mlir::WalkResult::advance();
   });
   addBoilerplateConstants(m);
@@ -288,7 +291,8 @@ target::MurphiModule createModule(mlir::ModuleOp op,
     }
 
     // create enum in module
-    m.addEnum(definingId, allValues);
+    target::MurphiEnumDeclaration enumDecl(definingId, allValues);
+    m.addEnum(enumDecl);
     return mlir::WalkResult::advance();
   });
 

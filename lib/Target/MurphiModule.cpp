@@ -4,15 +4,13 @@
 
 // ------- Murphi Module ------- //
 
-bool target::MurphiModule::addConstant(std::string id, int value){
-    target::MurphiConstantDeclaration constant(id, value);
-    constantsList.push_back(constant);
+bool target::MurphiModule::addConstant(target::MurphiConstantDeclaration constDecl){
+    constantsList.push_back(constDecl);
     return true;
 }
 
-bool target::MurphiModule::addEnum(std::string id, std::vector<std::string> enums){
-    target::MurphiEnumDeclaration e(id, enums);
-    enumList.push_back(e);
+bool target::MurphiModule::addEnum(target::MurphiEnumDeclaration enumDecl){
+    enumList.push_back(enumDecl);
     return true;
 }
 
