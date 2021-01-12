@@ -1,7 +1,5 @@
 #include "Target/MurphiModule.h"
 
-
-
 // ------- Murphi Module ------- //
 
 bool target::MurphiModule::addConstant(target::MurphiConstantDeclaration constDecl){
@@ -11,11 +9,6 @@ bool target::MurphiModule::addConstant(target::MurphiConstantDeclaration constDe
 
 bool target::MurphiModule::addEnum(target::MurphiEnumDeclaration enumDecl){
     enumList.push_back(enumDecl);
-    return true;
-}
-
-bool target::MurphiModule::addType(target::MurphiType t){
-    typeList.push_back(t);
     return true;
 }
 
