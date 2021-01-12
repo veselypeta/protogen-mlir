@@ -125,7 +125,7 @@ void MyPass::runOnOperation() {
   OwningRewritePatternList patterns;
 
   patterns.insert<ConstantOpLowering>(&getContext());
-  patterns.insert<AwaitOpLowering>(&getContext());
+  // patterns.insert<AwaitOpLowering>(&getContext());
 
   if (failed(applyPartialConversion(getOperation(), target,
                                     std::move(patterns)))) {

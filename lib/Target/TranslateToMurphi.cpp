@@ -1,6 +1,7 @@
 #include "Target/TranslateToMurphi.h"
 #include "Murphi/Dialect.h"
 
+#include "Target/MurphiModule.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Translation.h"
@@ -8,10 +9,8 @@
 
 #include <iostream>
 
-// Perform house keeping tasks here -- setup the file correctly
-void housekeeping(mlir::raw_ostream &output) {}
 
-/// Convert MLIR to Murphi
+/// Convert MLIR to Murphi -- OLD WAY
 void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
                                   mlir::raw_ostream &output) {
   output << "-- Starting the translation \n\n";
@@ -22,6 +21,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     auto value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
     auto id = constOp.getAttr("id").cast<mlir::StringAttr>().getValue();
     output << "const \t" << id << " : " << value << "; \n";
+    return WalkResult::advance();
   });
 
   // Output Enum Op type Decalration in Murphi
@@ -42,6 +42,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     llvm::interleave(allValues, output, ",\n\t");
 
     output << "\n};\n\n";
+    return WalkResult::advance();
   });
 
   // Output Scalarset Declartion type in Murphi
@@ -56,6 +57,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
                               .str();
 
     output << "type \t" << definingId << " : scalarset(" << valueId << ");\n";
+    return WalkResult::advance();
   });
 
   // Output Murphi for Subrange Operation
@@ -74,6 +76,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
 
     output << "type \t" << definingId << " : " << startId << ".." << endId
            << ";\n";
+    return WalkResult::advance();
   });
 
   // Output Murphi for Union Operation
@@ -93,6 +96,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     output << "type \t" << definingId << " : union {";
     llvm::interleaveComma(operandIds, output);
     output << "};\n";
+    return WalkResult::advance();
   });
 
   op.walk([&](mlir::murphi::RecordOp recOp) {
@@ -120,6 +124,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
       output << '\t' << pair.first << " : " << pair.second << ";\n";
     }
     output << "end;\n";
+    return WalkResult::advance();
   });
 
   op.walk([&](mlir::murphi::ArrayOp arrOp) {
@@ -141,6 +146,7 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     // Output
     output << "type \t" << definingId << " : array[" << sizeId << "] of "
            << typeId << ";\n";
+    return WalkResult::advance();
   });
 
   op.walk([&](mlir::murphi::MultisetOp multiOp) {
@@ -162,6 +168,8 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     // Output
     output << "type \t" << definingId << " : multiset[" << sizeId << "] of "
            << typeId << ";\n";
+
+    return WalkResult::advance();
   });
 
   op.walk([&](mlir::murphi::FunctionOp f) {
@@ -192,16 +200,99 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
     llvm::interleave(paramMap, output, "; ");
     output << ") : " << returnType << ";\n";
 
-
     // TODO Walk Var Decl Operations here
+    f.walk([&](mlir::murphi::VarDeclOp v) {
+      std::string definingId =
+          v.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+      std::string typeId = v.getOperand()
+                               .getDefiningOp()
+                               ->getAttr("id")
+                               .cast<mlir::StringAttr>()
+                               .getValue()
+                               .str();
+      output << "var " << definingId << " : " << typeId << ";\n";
+      return WalkResult::advance();
+    });
 
     output << "begin\n";
 
     // TODO Walk Nested Operations Here
+    f.walk([&](mlir::murphi::ReturnOp r) {
+      std::string returnValueId = r.getOperand(0)
+                                      .getDefiningOp()
+                                      ->getAttr("id")
+                                      .cast<mlir::StringAttr>()
+                                      .getValue()
+                                      .str();
+      output << "return " << returnValueId << ";\n";
+      return WalkResult::advance();
+    });
 
     output << "end;\n";
+    return WalkResult::advance();
+  });
+}
+
+// Perform house keeping tasks here -- setup the file correctly
+void addBoilerplateConstants(target::MurphiModule &m) {
+  // VAL_COUNT: 1;
+  m.addConstant("VAL_COUNT", 1);
+
+  // ADR_COUNT: 1;
+  m.addConstant("ADR_COUNT", 1);
+
+  // O_NET_MAX: 12;
+  // U_NET_MAX: 12;
+  m.addConstant("O_NET_MAX", 1);
+  m.addConstant("VAL_COUNT", 1);
+}
+
+void addAccessEnum(target::MurphiModule &m) {
+  std::vector<std::string> enumList = {"load", "store", "none"};
+  m.addEnum("Access", enumList);
+}
+
+void addAddressesAndCl(target::MurphiModule &m){
+// Address: scalarset(ADR_COUNT);
+// ClValue: 0..VAL_COUNT;
+
+
+};
+
+target::MurphiModule createModule(mlir::ModuleOp op,
+                                  mlir::raw_ostream &output) {
+  target::MurphiModule m;
+
+  op.walk([&](mlir::murphi::ConstantOp constOp) {
+    int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
+    std::string id =
+        constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    m.addConstant(id, value);
+    return mlir::WalkResult::advance();
+  });
+  addBoilerplateConstants(m);
+  addAccessEnum(m);
+
+  op.walk([&](mlir::murphi::EnumOp enumOp) {
+    std::string definingId =
+        enumOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+
+    mlir::ArrayAttr valuesAttr =
+        enumOp.getAttr("values").cast<mlir::ArrayAttr>();
+    std::vector<std::string> allValues;
+
+    for (mlir::Attribute a : valuesAttr.getValue()) {
+      mlir::StringAttr s = a.cast<mlir::StringAttr>();
+      std::string enumValue = s.getValue().str();
+      allValues.push_back(enumValue);
+    }
+
+    // create enum in module
+    m.addEnum(definingId, allValues);
+    return mlir::WalkResult::advance();
   });
 
+  return m;
 }
 
 namespace mlir {
@@ -210,7 +301,10 @@ void registerToMurphiTranslation() {
       "mlir-to-murphi",
       [](mlir::ModuleOp op, mlir::raw_ostream &output) {
         // TODO -- Run work here;
-        mlir::target::ModuleToMurphi(op, output);
+        // mlir::target::ModuleToMurphi(op, output);
+        auto module = createModule(op, output);
+        module.print(output);
+
         return mlir::success();
       },
       [](mlir::DialectRegistry &registry) {

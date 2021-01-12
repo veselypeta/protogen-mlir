@@ -34,8 +34,14 @@ module {
 
     %Request = "murphi.function"(%Address, %MessageType, %Machines, %Machines, %Message)({
         %msg = "murphi.var_decl"(%Message) {id = "msg"} : (i64) -> i64
-        "murphi.return" () : () -> ()
+        // "murphi.assign"(%msg){index="adr", assignValue="dst"} : (i64, i64) -> ()
+
+        "murphi.return" (%msg) : (i64) -> ()
     }){id="Request", params=["adr", "mtype", "src", "dst"]} : (i64, i64, i64, i64, i64) -> i64
+
+    func @directory_M_PutM(%input: i64) -> i64 {
+      "murphi.return"(%input): (i64)->()
+    }
 
 
 }

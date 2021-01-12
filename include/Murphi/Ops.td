@@ -68,6 +68,7 @@ def ReturnOp : Murphi_Op<"return", [NoSideEffect, Terminator]> {
     }): () -> ()
     ```
   }];
+  let arguments = (ins Optional<AnyType>:$ret);
 }
 
 def TypeDeclOp : Murphi_Op<"type_decl"> {
