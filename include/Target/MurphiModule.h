@@ -6,25 +6,18 @@
 #include <vector>
 
 namespace target {
+namespace murphi {
 
-class MurphiReference {
+class LanguageConstruct {
 public:
   virtual std::string getDefiningId() = 0;
-  virtual ~MurphiReference(){};
+  virtual void print(mlir::raw_ostream &stream) = 0;
+  virtual ~LanguageConstruct(){};
 };
 
-// class MurphiType: public MurphiReference {
-// public:
-//     virtual void print(mlir::raw_ostream &stream) {
-//         throw new std::exception();
-//     };
-//     virtual std::string getDefiningId(){throw new std::exception();}
-//     virtual ~MurphiType(){};
-// };
-
-class MurphiConstantDeclaration : public MurphiReference {
+class Constant : public LanguageConstruct {
 public:
-  MurphiConstantDeclaration(std::string constId, int constValue)
+  Constant(std::string constId, int constValue)
       : id{constId}, value{constValue} {}
   virtual void print(mlir::raw_ostream &stream);
   virtual std::string getDefiningId() { return id; };
@@ -34,9 +27,9 @@ private:
   int value;
 };
 
-class MurphiEnumDeclaration : public MurphiReference {
+class Enum : public LanguageConstruct {
 public:
-  MurphiEnumDeclaration(std::string enumId, std::vector<std::string> enumValues)
+  Enum(std::string enumId, std::vector<std::string> enumValues)
       : id{enumId}, enums{enumValues} {}
   virtual std::string getDefiningId() { return id; };
   virtual void print(mlir::raw_ostream &stream);
@@ -47,11 +40,11 @@ private:
 };
 
 // Address: scalarset(ADR_COUNT);
-class MurphiScalarsetDeclaration : public MurphiReference {
+class Scalarset : public LanguageConstruct {
 public:
-  MurphiScalarsetDeclaration(std::string scalarsetId, int intValue)
+  Scalarset(std::string scalarsetId, int intValue)
       : id{scalarsetId}, intValue{intValue}, intReference{nullptr} {};
-  MurphiScalarsetDeclaration(std::string scalarsetId, MurphiReference *ref)
+  Scalarset(std::string scalarsetId, LanguageConstruct *ref)
       : id{scalarsetId}, intValue{-1}, intReference{ref} {};
   virtual std::string getDefiningId() { return id; }
   void print(mlir::raw_ostream &stream);
@@ -59,80 +52,50 @@ public:
 private:
   std::string id;
   int intValue;
-  MurphiReference *intReference;
+  LanguageConstruct *intReference;
 };
 
-class MurphiValRangeDeclaration : public MurphiReference {
+class ValRange : public LanguageConstruct {
 public:
-  MurphiValRangeDeclaration(std::string id, int startVal, int endVal)
+  ValRange(std::string id, int startVal, int endVal)
       : id{id}, startValue{startVal}, endValue{endVal}, startReference{nullptr},
         endReference{nullptr} {};
-  MurphiValRangeDeclaration(std::string id, int startVal, MurphiReference *endRef)
-      : id{id},startValue{startVal}, endValue{-1}, startReference{nullptr},
+  ValRange(std::string id, int startVal, LanguageConstruct *endRef)
+      : id{id}, startValue{startVal}, endValue{-1}, startReference{nullptr},
         endReference{endRef} {};
-  MurphiValRangeDeclaration(std::string id, MurphiReference *startRef, MurphiReference *endRef)
-      : id{id},startValue{-1}, endValue{-1}, startReference{startRef},
+  ValRange(std::string id, LanguageConstruct *startRef,
+           LanguageConstruct *endRef)
+      : id{id}, startValue{-1}, endValue{-1}, startReference{startRef},
         endReference{endRef} {};
-  
-  std::string getDefiningId() {return id;};
+
+  std::string getDefiningId() { return id; };
   void print(mlir::raw_ostream &stream);
 
 private:
   std::string id;
   int startValue;
   int endValue;
-  MurphiReference *startReference;
-  MurphiReference *endReference;
+  LanguageConstruct *startReference;
+  LanguageConstruct *endReference;
 };
 
-class MurphiModule {
+class Module {
 public:
-  bool addConstant(target::MurphiConstantDeclaration constDecl);
-  bool addEnum(target::MurphiEnumDeclaration enumDecl);
-  bool addScalarset(target::MurphiScalarsetDeclaration scalarsetDeclaration);
-  bool addValRange(target::MurphiValRangeDeclaration valRangeDecl);
+  bool addConstant(target::murphi::Constant constDecl);
+  bool addEnum(target::murphi::Enum enumDecl);
+  bool addScalarset(target::murphi::Scalarset scalarsetDeclaration);
+  bool addValRange(target::murphi::ValRange valRangeDecl);
   void print(mlir::raw_ostream &stream);
-  MurphiReference *findReference(std::string id);
+  LanguageConstruct *findReference(std::string id);
 
 private:
-  std::vector<MurphiConstantDeclaration> constantsList;
-  std::vector<MurphiEnumDeclaration> enumList;
-  std::vector<MurphiScalarsetDeclaration> scalarsetList;
-  std::vector<MurphiValRangeDeclaration> valRangeList;
+  std::vector<Constant> constantsList;
+  std::vector<Enum> enumList;
+  std::vector<Scalarset> scalarsetList;
+  std::vector<ValRange> valRangeList;
+  std::vector<LanguageConstruct*> allConstructs;
 };
 
-// class MurphiTypeDefinitions {
 
-//   bool addEnum(std::string id, std::vector<std::string> values);
-
-// private:
-//   std::vector<MurphiEnumDefinition> enums;
-// };
-
-// class MurphiEnumDefinition {
-// public:
-//   std::string print();
-//   std::string getId();
-
-// private:
-//   std::vector<std::string> values;
-//   std::string id;
-// };
-
-// class MurphiScalarsetDefinition {
-// public:
-//   std::string print();
-//   std::string getId;
-
-// private:
-//   std::string id;
-// };
-
-// class MurphiRecordDefinition {
-// public:
-// private:
-//   std::vector<std::string> fieldIds;
-//   std::vector<MurphiTypeDefinitions> definitions;
-// };
-
+} // namespace murphi
 } // namespace target
