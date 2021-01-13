@@ -9,7 +9,6 @@
 
 #include <iostream>
 
-
 /// Convert MLIR to Murphi -- OLD WAY
 void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
                                   mlir::raw_ostream &output) {
@@ -252,11 +251,12 @@ void addAccessEnum(target::MurphiModule &m) {
   m.addEnum(target::MurphiEnumDeclaration("Access", enumList));
 }
 
-void addAddressesAndCl(target::MurphiModule &m){
-// Address: scalarset(ADR_COUNT);
-// ClValue: 0..VAL_COUNT;
-
-
+void addAddressesAndCl(target::MurphiModule &m) {
+  // Address: scalarset(ADR_COUNT);
+  target::MurphiScalarsetDeclaration address("Address",
+                                             m.findReference("ADR_COUNT"));
+  m.addScalarset(address);
+  // ClValue: 0..VAL_COUNT;
 };
 
 target::MurphiModule createModule(mlir::ModuleOp op,
@@ -267,7 +267,7 @@ target::MurphiModule createModule(mlir::ModuleOp op,
     int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
     std::string id =
         constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    
+
     target::MurphiConstantDeclaration constDecl(id, value);
     m.addConstant(constDecl);
 
@@ -295,6 +295,8 @@ target::MurphiModule createModule(mlir::ModuleOp op,
     m.addEnum(enumDecl);
     return mlir::WalkResult::advance();
   });
+
+  addAddressesAndCl(m);
 
   return m;
 }

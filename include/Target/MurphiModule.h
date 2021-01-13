@@ -1,9 +1,9 @@
 #pragma once
-#include <iostream>
-#include <vector>
-#include <exception>
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include <exception>
+#include <iostream>
+#include <vector>
 
 namespace target {
 
@@ -46,15 +46,59 @@ private:
   std::vector<std::string> enums;
 };
 
+// Address: scalarset(ADR_COUNT);
+class MurphiScalarsetDeclaration : public MurphiReference {
+public:
+  MurphiScalarsetDeclaration(std::string scalarsetId, int intValue)
+      : id{scalarsetId}, intValue{intValue}, intReference{nullptr} {};
+  MurphiScalarsetDeclaration(std::string scalarsetId, MurphiReference *ref)
+      : id{scalarsetId}, intValue{-1}, intReference{ref} {};
+  virtual std::string getDefiningId() { return id; }
+  void print(mlir::raw_ostream &stream);
+
+private:
+  std::string id;
+  int intValue;
+  MurphiReference *intReference;
+};
+
+class MurphiValRangeDeclaration : public MurphiReference {
+public:
+  MurphiValRangeDeclaration(int startVal, int endVal)
+      : startValue{startVal}, endValue{endVal}, startReference{nullptr},
+        endReference{nullptr} {};
+  MurphiValRangeDeclaration(int startVal, MurphiReference *endRef)
+      : startValue{startVal}, endValue{-1}, startReference{nullptr},
+        endReference{endRef} {};
+  MurphiValRangeDeclaration(MurphiReference *startRef, MurphiReference *endRef)
+      : startValue{-1}, endValue{-1}, startReference{startRef},
+        endReference{endRef} {};
+  
+  std::string getDefiningId() {return id;};
+  void print(mlir::raw_ostream &stream);
+
+private:
+  std::string id;
+  int startValue;
+  int endValue;
+  MurphiReference *startReference;
+  MurphiReference *endReference;
+};
+
 class MurphiModule {
 public:
   bool addConstant(target::MurphiConstantDeclaration constDecl);
   bool addEnum(target::MurphiEnumDeclaration enumDecl);
+  bool addScalarset(target::MurphiScalarsetDeclaration scalarsetDeclaration);
+  bool addValRange(target::MurphiValRangeDeclaration valRangeDecl);
   void print(mlir::raw_ostream &stream);
+  MurphiReference *findReference(std::string id);
 
 private:
   std::vector<MurphiConstantDeclaration> constantsList;
   std::vector<MurphiEnumDeclaration> enumList;
+  std::vector<MurphiScalarsetDeclaration> scalarsetList;
+  std::vector<MurphiValRangeDeclaration> valRangeList;
 };
 
 // class MurphiTypeDefinitions {
