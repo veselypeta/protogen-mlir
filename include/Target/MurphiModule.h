@@ -64,14 +64,14 @@ private:
 
 class MurphiValRangeDeclaration : public MurphiReference {
 public:
-  MurphiValRangeDeclaration(int startVal, int endVal)
-      : startValue{startVal}, endValue{endVal}, startReference{nullptr},
+  MurphiValRangeDeclaration(std::string id, int startVal, int endVal)
+      : id{id}, startValue{startVal}, endValue{endVal}, startReference{nullptr},
         endReference{nullptr} {};
-  MurphiValRangeDeclaration(int startVal, MurphiReference *endRef)
-      : startValue{startVal}, endValue{-1}, startReference{nullptr},
+  MurphiValRangeDeclaration(std::string id, int startVal, MurphiReference *endRef)
+      : id{id},startValue{startVal}, endValue{-1}, startReference{nullptr},
         endReference{endRef} {};
-  MurphiValRangeDeclaration(MurphiReference *startRef, MurphiReference *endRef)
-      : startValue{-1}, endValue{-1}, startReference{startRef},
+  MurphiValRangeDeclaration(std::string id, MurphiReference *startRef, MurphiReference *endRef)
+      : id{id},startValue{-1}, endValue{-1}, startReference{startRef},
         endReference{endRef} {};
   
   std::string getDefiningId() {return id;};

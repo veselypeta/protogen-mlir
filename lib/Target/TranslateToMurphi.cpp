@@ -257,6 +257,8 @@ void addAddressesAndCl(target::MurphiModule &m) {
                                              m.findReference("ADR_COUNT"));
   m.addScalarset(address);
   // ClValue: 0..VAL_COUNT;
+  target::MurphiValRangeDeclaration clValue("ClValue", 0, m.findReference("VAL_COUNT"));
+  m.addValRange(clValue);
 };
 
 target::MurphiModule createModule(mlir::ModuleOp op,

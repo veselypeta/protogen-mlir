@@ -41,6 +41,11 @@ void target::MurphiModule::print(mlir::raw_ostream &stream){
     for(auto ss : this->scalarsetList){
         ss.print(stream);
     }
+
+    // print all value ranges
+    for(auto vl : this->valRangeList){
+        vl.print(stream);
+    }
     
 }
 target::MurphiReference* target::MurphiModule::findReference(std::string id){
@@ -68,6 +73,14 @@ target::MurphiReference* target::MurphiModule::findReference(std::string id){
         }
     }
 
+    // Loop over value ranges
+    for(int i=0; i < (int)valRangeList.size(); i++){
+        target::MurphiValRangeDeclaration* v = &valRangeList.data()[i];
+        if(v->getDefiningId() == id){
+            return v;
+        }
+    }
+
     return nullptr;
 }
 
@@ -86,19 +99,19 @@ void target::MurphiEnumDeclaration::print(mlir::raw_ostream &stream){
 // ------- MurphiScalarsetDefinition ------- //
 void target::MurphiScalarsetDeclaration::print(mlir::raw_ostream &stream){
     if(this->intReference == nullptr){
-        stream << this->getDefiningId() << ": scalarset(" << intValue << ");";
+        stream << this->getDefiningId() << ": scalarset(" << intValue << ");\n";
     }else{
-        stream << this->getDefiningId() << ": scalarset(" << intReference->getDefiningId() << ");";
+        stream << this->getDefiningId() << ": scalarset(" << intReference->getDefiningId() << ");\n";
     }
 }
 // ------- MurphiValRangeDeclaration ------- //
 void target::MurphiValRangeDeclaration::print(mlir::raw_ostream &stream){
     if(this->startReference == nullptr && this->endReference == nullptr){
-        stream << getDefiningId() << ": " << startValue << ".." << endValue << ";";
+        stream << getDefiningId() << ": " << startValue << ".." << endValue << ";\n";
     }else if(this->startReference == nullptr && this->endReference != nullptr){
-        stream << getDefiningId() << ": " << startValue << ".." << endReference->getDefiningId() << ";";
+        stream << getDefiningId() << ": " << startValue << ".." << endReference->getDefiningId() << ";\n";
     }else if(this->startReference != nullptr && this->endReference != nullptr){
-        stream << getDefiningId() << ": " << startReference->getDefiningId() << ".." << endReference->getDefiningId() << ";";
+        stream << getDefiningId() << ": " << startReference->getDefiningId() << ".." << endReference->getDefiningId() << ";\n";
     }
 }
 
