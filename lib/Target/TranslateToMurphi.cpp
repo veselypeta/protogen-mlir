@@ -235,34 +235,34 @@ void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
 // Perform house keeping tasks here -- setup the file correctly
 void addBoilerplateConstants(target::murphi::Module &m) {
   // VAL_COUNT: 1;
-  m.addConstant(target::murphi::Constant("VAL_COUNT", 1));
+  m.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
 
   // ADR_COUNT: 1;
-  m.addConstant(target::murphi::Constant("ADR_COUNT", 1));
+  m.addConstant(new target::murphi::Constant("ADR_COUNT", 1));
 
   // O_NET_MAX: 12;
   // U_NET_MAX: 12;
-  m.addConstant(target::murphi::Constant("O_NET_MAX", 1));
-  m.addConstant(target::murphi::Constant("VAL_COUNT", 1));
+  m.addConstant(new target::murphi::Constant("O_NET_MAX", 1));
+  m.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
 }
 
 void addAccessEnum(target::murphi::Module &m) {
   std::vector<std::string> enumList = {"load", "store", "none"};
-  m.addEnum(target::murphi::Enum("Access", enumList));
+  m.addEnum(new target::murphi::Enum("Access", enumList));
 }
 
 void addAddressesAndCl(target::murphi::Module &m) {
   // Address: scalarset(ADR_COUNT);
-  target::murphi::Scalarset address("Address",
-                                             m.findReference("ADR_COUNT"));
-  m.addScalarset(address);
+  m.addScalarset(
+      new target::murphi::Scalarset("Address", m.findReference("ADR_COUNT")));
+
   // ClValue: 0..VAL_COUNT;
-  target::murphi::ValRange clValue("ClValue", 0, m.findReference("VAL_COUNT"));
+  target::murphi::ValRange *clValue = new target::murphi::ValRange("ClValue", 0, m.findReference("VAL_COUNT"));
   m.addValRange(clValue);
 };
 
 target::murphi::Module createModule(mlir::ModuleOp op,
-                                  mlir::raw_ostream &output) {
+                                    mlir::raw_ostream &output) {
   target::murphi::Module m;
 
   op.walk([&](mlir::murphi::ConstantOp constOp) {
@@ -270,7 +270,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
     std::string id =
         constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
 
-    target::murphi::Constant constDecl(id, value);
+    target::murphi::Constant *constDecl = new target::murphi::Constant(id, value);
     m.addConstant(constDecl);
 
     return mlir::WalkResult::advance();
@@ -293,7 +293,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
     }
 
     // create enum in module
-    target::murphi::Enum enumDecl(definingId, allValues);
+    target::murphi::Enum *enumDecl = new target::murphi::Enum(definingId, allValues);
     m.addEnum(enumDecl);
     return mlir::WalkResult::advance();
   });

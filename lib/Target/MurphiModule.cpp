@@ -2,93 +2,100 @@
 
 // ------- Murphi Module ------- //
 
-bool target::murphi::Module::addConstant(target::murphi::Constant constDecl) {
+bool target::murphi::Module::addConstant(target::murphi::Constant *constDecl) {
   constantsList.push_back(constDecl);
+  allConstructs.push_back(constDecl);
   return true;
 }
 
-bool target::murphi::Module::addEnum(target::murphi::Enum enumDecl) {
+bool target::murphi::Module::addEnum(target::murphi::Enum *enumDecl) {
   enumList.push_back(enumDecl);
+  allConstructs.push_back(enumDecl);
   return true;
 }
 bool target::murphi::Module::addScalarset(
-    target::murphi::Scalarset scalarsetDeclaration) {
+    target::murphi::Scalarset *scalarsetDeclaration) {
+  scalarsetList.push_back(scalarsetDeclaration);
   scalarsetList.push_back(scalarsetDeclaration);
   return true;
 }
 
 bool target::murphi::Module::addValRange(
-    target::murphi::ValRange valRangeDecl) {
+    target::murphi::ValRange *valRangeDecl) {
   valRangeList.push_back(valRangeDecl);
+  allConstructs.push_back(valRangeDecl);
   return true;
 }
 
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
+
+    for(auto lc: allConstructs){
+        lc->print(stream);
+    }
   // Print out all the Constants
-  stream << "const\n";
-  for (auto s : constantsList){
-      s.print(stream);
-  }
+//   stream << "const\n";
+//   for (auto s : constantsList) {
+//     s.print(stream);
+//   }
 
-  stream << "\n\n";
+//   stream << "\n\n";
 
-  // Print all Enums
-  stream << "type\n";
-  for (auto t : enumList){
-      t.print(stream);
-  }
+//   // Print all Enums
+//   stream << "type\n";
+//   for (auto t : enumList) {
+//     t.print(stream);
+//   }
 
-  stream << "\n\n";
-  // Print all Scalarsets
-  for(auto ss : this->scalarsetList){
-      ss.print(stream);
-  }
+//   stream << "\n\n";
+//   // Print all Scalarsets
+//   for (auto ss : this->scalarsetList) {
+//     ss.print(stream);
+//   }
 
-  // print all value ranges
-  for(auto vl : this->valRangeList){
-      vl.print(stream);
-  }
-
+//   // print all value ranges
+//   for (auto vl : this->valRangeList) {
+//     vl.print(stream);
+//   }
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
-//   for (auto lc : this->allConstructs) {
-//     if (lc->getDefiningId() == id) {
-//       return lc;
+    for (auto lc : this->allConstructs) {
+      if (lc->getDefiningId() == id) {
+        return lc;
+      }
+    }
+  //   return nullptr;
+  // loop over Constsnts
+//   for (int i = 0; i < (int)constantsList.size(); i++) {
+//     target::murphi::Constant *c = &constantsList.data()[i];
+//     if (c->getDefiningId() == id) {
+//       return c;
 //     }
 //   }
-//   return nullptr;
-  // loop over Constsnts
-  for(int i=0; i < (int)constantsList.size(); i++){
-      target::murphi::Constant* c = &constantsList.data()[i];
-      if(c->getDefiningId() == id){
-          return c;
-      }
-  }
 
-  // loop over Enums
-  for(int i=0; i < (int)enumList.size(); i++){
-      target::murphi::Enum* e = &enumList.data()[i];
-      if(e->getDefiningId() == id){
-          return e;
-      }
-  }
+//   // loop over Enums
+//   for (int i = 0; i < (int)enumList.size(); i++) {
+//     target::murphi::Enum *e = &enumList.data()[i];
+//     if (e->getDefiningId() == id) {
+//       return e;
+//     }
+//   }
 
-  // Loop over scalarsets
-  for(int i=0; i < (int)scalarsetList.size(); i++){
-      target::murphi::Scalarset* s = &scalarsetList.data()[i];
-      if(s->getDefiningId() == id){
-          return s;
-      }
-  }
+//   // Loop over scalarsets
+//   for (int i = 0; i < (int)scalarsetList.size(); i++) {
+//     target::murphi::Scalarset *s = &scalarsetList.data()[i];
+//     if (s->getDefiningId() == id) {
+//       return s;
+//     }
+//   }
 
-  // Loop over value ranges
-  for(int i=0; i < (int)valRangeList.size(); i++){
-      target::murphi::ValRange* v = &valRangeList.data()[i];
-      if(v->getDefiningId() == id){
-          return v;
-      }
-  }
+//   // Loop over value ranges
+//   for (int i = 0; i < (int)valRangeList.size(); i++) {
+//     target::murphi::ValRange *v = &valRangeList.data()[i];
+//     if (v->getDefiningId() == id) {
+//       return v;
+//     }
+//   }
 
   return nullptr;
 }

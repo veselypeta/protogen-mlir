@@ -81,18 +81,25 @@ private:
 
 class Module {
 public:
-  bool addConstant(target::murphi::Constant constDecl);
-  bool addEnum(target::murphi::Enum enumDecl);
-  bool addScalarset(target::murphi::Scalarset scalarsetDeclaration);
-  bool addValRange(target::murphi::ValRange valRangeDecl);
+  bool addConstant(target::murphi::Constant* constDecl);
+  bool addEnum(target::murphi::Enum* enumDecl);
+  bool addScalarset(target::murphi::Scalarset* scalarsetDeclaration);
+  bool addValRange(target::murphi::ValRange* valRangeDecl);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
+  ~Module(){
+    for(auto lc : allConstructs){
+      delete lc;
+    }
+  }
+
+
 private:
-  std::vector<Constant> constantsList;
-  std::vector<Enum> enumList;
-  std::vector<Scalarset> scalarsetList;
-  std::vector<ValRange> valRangeList;
+  std::vector<Constant*> constantsList;
+  std::vector<Enum*> enumList;
+  std::vector<Scalarset*> scalarsetList;
+  std::vector<ValRange*> valRangeList;
   std::vector<LanguageConstruct*> allConstructs;
 };
 
