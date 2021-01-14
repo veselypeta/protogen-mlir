@@ -177,5 +177,19 @@ def FunctionOp : Murphi_Op<"function">{
         let regions = (region SizedRegion<1>:$region);
 }
 
+def CacheDefOp : Murphi_Op<"cache_definition">{
+        let summary = "definition of a cache";
+        let description = [{}];
+
+        let arguments = (ins ArrayAttr:$fields, ArrayAttr:$types);
+}
+
+def DirectoryDefOp : Murphi_Op<"directory_definition">{
+        let summary = "definition of a directory";
+        let description = [{}];
+
+        let arguments = (ins ArrayAttr:$fields, ArrayAttr:$types);
+}
+
 
 #endif // MURPHI_OPS

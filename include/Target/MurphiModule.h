@@ -1,6 +1,7 @@
 #pragma once
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include <cstdarg>
 #include <exception>
 #include <iostream>
 #include <vector>
@@ -79,30 +80,62 @@ private:
   LanguageConstruct *endReference;
 };
 
+class Union : public LanguageConstruct {
+public:
+  Union(std::string unionId, LanguageConstruct *first,
+        LanguageConstruct *second)
+      : id{unionId} {
+    unions.push_back(first);
+    unions.push_back(second);
+  };
+  virtual std::string getDefiningId() { return id; }
+  virtual void print(mlir::raw_ostream &stream);
+
+private:
+  std::vector<LanguageConstruct *> unions;
+  std::string id;
+};
+
+class Record : public LanguageConstruct {
+public:
+  Record(std::string recordId) : id{recordId} {}
+  virtual std::string getDefiningId() { return id; }
+  virtual void print(mlir::raw_ostream &stream);
+  void addEntry(std::string key, LanguageConstruct *type) {
+    elements.push_back({key, type});
+  }
+
+private:
+  std::string id;
+  std::vector<std::pair<std::string, LanguageConstruct *>> elements;
+};
+
 class Module {
 public:
-  bool addConstant(target::murphi::Constant* constDecl);
-  bool addEnum(target::murphi::Enum* enumDecl);
-  bool addScalarset(target::murphi::Scalarset* scalarsetDeclaration);
-  bool addValRange(target::murphi::ValRange* valRangeDecl);
+  bool addConstant(target::murphi::Constant *constDecl);
+  bool addEnum(target::murphi::Enum *enumDecl);
+  bool addScalarset(target::murphi::Scalarset *scalarsetDeclaration);
+  bool addValRange(target::murphi::ValRange *valRangeDecl);
+  bool addUnion(target::murphi::Union *unionDef);
+  bool addRecord(target::murphi::Record *record);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
-  ~Module(){
-    for(auto lc : allConstructs){
+  ~Module() {
+    for (auto lc : allConstructs) {
       delete lc;
     }
   }
 
-
 private:
-  std::vector<Constant*> constantsList;
-  std::vector<Enum*> enumList;
-  std::vector<Scalarset*> scalarsetList;
-  std::vector<ValRange*> valRangeList;
-  std::vector<LanguageConstruct*> allConstructs;
+  std::vector<Constant *> constantsList;
+  std::vector<Enum *> enumList;
+  std::vector<Scalarset *> scalarsetList;
+  std::vector<ValRange *> valRangeList;
+  std::vector<Union *> unionList;
+  std::vector<Record *> recordList;
+  std::vector<LanguageConstruct *> allConstructs;
 };
-
 
 } // namespace murphi
 } // namespace target

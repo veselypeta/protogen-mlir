@@ -257,9 +257,85 @@ void addAddressesAndCl(target::murphi::Module &m) {
       new target::murphi::Scalarset("Address", m.findReference("ADR_COUNT")));
 
   // ClValue: 0..VAL_COUNT;
-  target::murphi::ValRange *clValue = new target::murphi::ValRange("ClValue", 0, m.findReference("VAL_COUNT"));
+  target::murphi::ValRange *clValue =
+      new target::murphi::ValRange("ClValue", 0, m.findReference("VAL_COUNT"));
   m.addValRange(clValue);
 };
+
+void addCacheDirectoryObjectDefinitions(target::murphi::Module &m) {
+  // OBJSET_cache: scalarset(NrCaches);
+  target::murphi::Scalarset *objsetCache = new target::murphi::Scalarset(
+      "OBJSET_cache", m.findReference("nrCaches"));
+
+  // OBJSET_directory: enum{directory};
+  std::vector<std::string> directoryValues;
+  directoryValues.push_back("directory");
+  target::murphi::Enum *objsetDirectory =
+      new target::murphi::Enum("OBJSET_directory", directoryValues);
+
+  // Machines: union{OBJSET_cache, OBJSET_directory};
+  target::murphi::Union *machines =
+      new target::murphi::Union("Machines", objsetCache, objsetDirectory);
+
+  // Add Then to the Module
+  m.addScalarset(objsetCache);
+  m.addEnum(objsetDirectory);
+  m.addUnion(machines);
+}
+
+void addCacheDirectoryDefinitions(target::murphi::Module &m, mlir::ModuleOp op) {
+  target::murphi::Record *cache = new target::murphi::Record("ENTRY_cache");
+  target::murphi::Record *directory = new target::murphi::Record("ENTRY_directory");
+  op.walk([&](mlir::murphi::CacheDefOp cacheDef){
+      auto fieldsAttr = cacheDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      auto typesAttr = cacheDef.getAttr("types").cast<mlir::ArrayAttr>();
+      for(int i = 0; i < fieldsAttr.size(); i++){
+        std::string fieldName = fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeName = typesAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeId;
+        std::cout << typeName << std::endl;
+        if(fieldName == "State"){
+          typeId = "cache_state";
+        } else if(typeName == "Data"){
+          typeId = "ClValue";
+        } else if(typeName == "ID"){
+          typeId = "Machines";
+        }
+        // Push each element into the data structure
+        cache->addEntry(fieldName, m.findReference(typeId));
+      }
+      cache->addEntry("Perm", m.findReference("Access"));
+  });
+
+    op.walk([&](mlir::murphi::DirectoryDefOp directoryDef){
+      auto fieldsAttr = directoryDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      auto typesAttr = directoryDef.getAttr("types").cast<mlir::ArrayAttr>();
+      for(int i = 0; i < fieldsAttr.size(); i++){
+        std::string fieldName = fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeName = typesAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeId;
+        std::cout << typeName << std::endl;
+        if(fieldName == "State"){
+          typeId = "directory_state";
+        } else if(typeName == "Data"){
+          typeId = "ClValue";
+        } else if(typeName == "ID"){
+          typeId = "Machines";
+        }
+        // Push each element into the data structure
+        directory->addEntry(fieldName, m.findReference(typeId));
+      }
+      directory->addEntry("Perm", m.findReference("Access"));
+  });
+  // Add Access
+  
+  m.addRecord(cache);
+  m.addRecord(directory);
+}
+
+void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op){
+  
+}
 
 target::murphi::Module createModule(mlir::ModuleOp op,
                                     mlir::raw_ostream &output) {
@@ -270,7 +346,8 @@ target::murphi::Module createModule(mlir::ModuleOp op,
     std::string id =
         constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
 
-    target::murphi::Constant *constDecl = new target::murphi::Constant(id, value);
+    target::murphi::Constant *constDecl =
+        new target::murphi::Constant(id, value);
     m.addConstant(constDecl);
 
     return mlir::WalkResult::advance();
@@ -293,13 +370,15 @@ target::murphi::Module createModule(mlir::ModuleOp op,
     }
 
     // create enum in module
-    target::murphi::Enum *enumDecl = new target::murphi::Enum(definingId, allValues);
+    target::murphi::Enum *enumDecl =
+        new target::murphi::Enum(definingId, allValues);
     m.addEnum(enumDecl);
     return mlir::WalkResult::advance();
   });
 
   addAddressesAndCl(m);
-
+  addCacheDirectoryObjectDefinitions(m);
+  addCacheDirectoryDefinitions(m, op);
   return m;
 }
 
