@@ -102,17 +102,38 @@ public:
   virtual std::string getDefiningId() { return id; }
   virtual void print(mlir::raw_ostream &stream);
   void addEntry(std::string key, LanguageConstruct *type) {
-    for(auto pair : elements){
-      if(pair.first == key){
+    for (auto pair : elements) {
+      if (pair.first == key) {
         return;
       }
     }
     elements.push_back({key, type});
   }
+  std::pair<std::string, LanguageConstruct *> findEntry(std::string key){
+    for(auto pair : elements){
+      if(pair.first == key){
+        return pair;
+      }
+    }
+  }
+  std::vector<std::pair<std::string, LanguageConstruct *>> getElements() {return elements;}
 
 private:
   std::string id;
   std::vector<std::pair<std::string, LanguageConstruct *>> elements;
+};
+
+class MessageContructor {
+public:
+  MessageContructor(std::string msgId, LanguageConstruct* msgDef) : id{msgId}, messageDef{msgDef} {}
+  void print(mlir::raw_ostream &stream);
+  void addExtraField(std::string fieldName){
+    extraFields.push_back(fieldName);
+  }
+private:
+  std::string id;
+  LanguageConstruct* messageDef;
+  std::vector<std::string> extraFields;
 };
 
 class Module {
@@ -123,6 +144,7 @@ public:
   bool addValRange(target::murphi::ValRange *valRangeDecl);
   bool addUnion(target::murphi::Union *unionDef);
   bool addRecord(target::murphi::Record *record);
+  bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
@@ -140,6 +162,8 @@ private:
   std::vector<Union *> unionList;
   std::vector<Record *> recordList;
   std::vector<LanguageConstruct *> allConstructs;
+
+  std::vector<MessageContructor *> msgContructors;
 };
 
 } // namespace murphi

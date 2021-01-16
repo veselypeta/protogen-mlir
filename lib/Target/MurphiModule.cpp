@@ -1,5 +1,6 @@
 #include "Target/MurphiModule.h"
 #include "Target/MurphiTemplates.h"
+#include <algorithm>
 // ------- Murphi Module ------- //
 
 bool target::murphi::Module::addConstant(target::murphi::Constant *constDecl) {
@@ -39,11 +40,20 @@ bool target::murphi::Module::addRecord(target::murphi::Record *recordDefinition)
     return true;
 }
 
+bool target::murphi::Module::addMessageConstructor(target::murphi::MessageContructor *msgConstr){
+  msgContructors.push_back(msgConstr);
+  return true;
+}
+
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
 
     // print all type construct
     for(auto lc: allConstructs){
         lc->print(stream);
+    }
+
+    for(auto mc : msgContructors){
+      mc->print(stream);
     }
 }
 target::murphi::LanguageConstruct *
@@ -104,4 +114,33 @@ void target::murphi::Record::print(mlir::raw_ostream &stream){
         stream << "\t" << elem.first << " : " << elem.second->getDefiningId() << ";\n";
     }
     stream << "end;\n";
+}
+
+
+// ------- MessageConstructor ------- //
+void target::murphi::MessageContructor::print(mlir::raw_ostream &stream){
+  target::murphi::Record *messageRecord = dynamic_cast<target::murphi::Record*>(messageDef);
+  std::string msgParams;
+  std::string fieldDefs;
+
+
+  // For the defined extra field add a new parameter to the function with the correct type
+  for (std::string ef : extraFields){
+    msgParams += "; ";
+    msgParams += ef;
+    msgParams += ": ";
+    msgParams += messageRecord->findEntry(ef).second->getDefiningId();
+  }
+
+  auto elements = messageRecord->getElements();
+  for(int i = 4; i < (int)elements.size(); i++){
+    std::string fieldName = elements[i].first;
+    fieldDefs += "\tmsg.";
+    fieldDefs += fieldName;
+    fieldDefs += " := ";
+    fieldDefs += std::find(extraFields.begin(), extraFields.end(), fieldName) != extraFields.end() ? fieldName : "undefined";
+    fieldDefs += ";\n";
+  }
+  stream << message_constructor(id, msgParams, fieldDefs);
+
 }

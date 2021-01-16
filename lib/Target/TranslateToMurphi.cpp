@@ -143,6 +143,22 @@ void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
   m.addRecord(msgDef);
 }
 
+void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op){
+  target::murphi::LanguageConstruct *messageDeclaration = m.findReference("Message");
+  op.walk([&](mlir::murphi::MessageDefOp msgDef){
+    std::string msgId = msgDef.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    target::murphi::MessageContructor *msgConstr = new target::murphi::MessageContructor(msgId, messageDeclaration);
+    auto fieldsAttr = msgDef.getAttr("fields").cast<mlir::ArrayAttr>();
+    // auto typesAttr = msgDef.getAttr("types").cast<mlir::ArrayAttr>();
+    for(int i = 0; i < (int)fieldsAttr.size(); i++){
+      msgConstr->addExtraField(fieldsAttr[i].cast<mlir::StringAttr>().getValue().str());
+    }
+    // ADD MSG CONSTROCTOR TO MODULE
+    m.addMessageConstructor(msgConstr);
+    return mlir::WalkResult::advance();
+  });
+}
+
 target::murphi::Module createModule(mlir::ModuleOp op,
                                     mlir::raw_ostream &output) {
   target::murphi::Module m;
@@ -186,6 +202,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addCacheDirectoryObjectDefinitions(m);
   addCacheDirectoryDefinitions(m, op);
   setupMessageTypes(m, op);
+  setupMessageFactories(m, op);
   return m;
 }
 
