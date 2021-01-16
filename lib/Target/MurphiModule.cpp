@@ -1,5 +1,5 @@
 #include "Target/MurphiModule.h"
-
+#include "Target/MurphiTemplates.h"
 // ------- Murphi Module ------- //
 
 bool target::murphi::Module::addConstant(target::murphi::Constant *constDecl) {
@@ -45,8 +45,6 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
     for(auto lc: allConstructs){
         lc->print(stream);
     }
-
-    // stream << boiler_plate_definitions << '\n';
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
