@@ -28,41 +28,43 @@ bool target::murphi::Module::addValRange(
   return true;
 }
 
-bool target::murphi::Module::addUnion(target::murphi::Union *unionDefinition){
-    unionList.push_back(unionDefinition);
-    allConstructs.push_back(unionDefinition);
-    return true;
+bool target::murphi::Module::addUnion(target::murphi::Union *unionDefinition) {
+  unionList.push_back(unionDefinition);
+  allConstructs.push_back(unionDefinition);
+  return true;
 }
 
-bool target::murphi::Module::addRecord(target::murphi::Record *recordDefinition){
-    recordList.push_back(recordDefinition);
-    allConstructs.push_back(recordDefinition);
-    return true;
+bool target::murphi::Module::addRecord(
+    target::murphi::Record *recordDefinition) {
+  recordList.push_back(recordDefinition);
+  allConstructs.push_back(recordDefinition);
+  return true;
 }
 
-bool target::murphi::Module::addMessageConstructor(target::murphi::MessageContructor *msgConstr){
+bool target::murphi::Module::addMessageConstructor(
+    target::murphi::MessageContructor *msgConstr) {
   msgContructors.push_back(msgConstr);
   return true;
 }
 
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
 
-    // print all type construct
-    for(auto lc: allConstructs){
-        lc->print(stream);
-    }
+  // print all type construct
+  for (auto lc : allConstructs) {
+    lc->print(stream);
+  }
 
-    for(auto mc : msgContructors){
-      mc->print(stream);
-    }
+  for (auto mc : msgContructors) {
+    mc->print(stream);
+  }
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
-    for (auto lc : this->allConstructs) {
-      if (lc->getDefiningId() == id) {
-        return lc;
-      }
+  for (auto lc : this->allConstructs) {
+    if (lc->getDefiningId() == id) {
+      return lc;
     }
+  }
   return nullptr;
 }
 
@@ -103,29 +105,31 @@ void target::murphi::ValRange::print(mlir::raw_ostream &stream) {
 }
 
 // ------- Union ------- //
-void target::murphi::Union::print(mlir::raw_ostream &stream){
-    stream << getDefiningId() << ": union{" << unions[0]->getDefiningId() << ", " << unions[1]->getDefiningId() << "};\n";
+void target::murphi::Union::print(mlir::raw_ostream &stream) {
+  stream << getDefiningId() << ": union{" << unions[0]->getDefiningId() << ", "
+         << unions[1]->getDefiningId() << "};\n";
 }
 
 // ------- Record ------- //
-void target::murphi::Record::print(mlir::raw_ostream &stream){
-    stream << getDefiningId() << ": record\n";
-    for(auto elem : elements){
-        stream << "\t" << elem.first << " : " << elem.second->getDefiningId() << ";\n";
-    }
-    stream << "end;\n";
+void target::murphi::Record::print(mlir::raw_ostream &stream) {
+  stream << getDefiningId() << ": record\n";
+  for (auto elem : elements) {
+    stream << "\t" << elem.first << " : " << elem.second->getDefiningId()
+           << ";\n";
+  }
+  stream << "end;\n";
 }
 
-
 // ------- MessageConstructor ------- //
-void target::murphi::MessageContructor::print(mlir::raw_ostream &stream){
-  target::murphi::Record *messageRecord = dynamic_cast<target::murphi::Record*>(messageDef);
+void target::murphi::MessageContructor::print(mlir::raw_ostream &stream) {
+  target::murphi::Record *messageRecord =
+      dynamic_cast<target::murphi::Record *>(messageDef);
   std::string msgParams;
   std::string fieldDefs;
 
-
-  // For the defined extra field add a new parameter to the function with the correct type
-  for (std::string ef : extraFields){
+  // For the defined extra field add a new parameter to the function with the
+  // correct type
+  for (std::string ef : extraFields) {
     msgParams += "; ";
     msgParams += ef;
     msgParams += ": ";
@@ -133,14 +137,16 @@ void target::murphi::MessageContructor::print(mlir::raw_ostream &stream){
   }
 
   auto elements = messageRecord->getElements();
-  for(int i = 4; i < (int)elements.size(); i++){
+  for (int i = 4; i < (int)elements.size(); i++) {
     std::string fieldName = elements[i].first;
     fieldDefs += "\tmsg.";
     fieldDefs += fieldName;
     fieldDefs += " := ";
-    fieldDefs += std::find(extraFields.begin(), extraFields.end(), fieldName) != extraFields.end() ? fieldName : "undefined";
+    fieldDefs += std::find(extraFields.begin(), extraFields.end(), fieldName) !=
+                         extraFields.end()
+                     ? fieldName
+                     : "undefined";
     fieldDefs += ";\n";
   }
   stream << message_constructor(id, msgParams, fieldDefs);
-
 }
