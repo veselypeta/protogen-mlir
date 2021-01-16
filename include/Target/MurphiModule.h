@@ -102,6 +102,11 @@ public:
   virtual std::string getDefiningId() { return id; }
   virtual void print(mlir::raw_ostream &stream);
   void addEntry(std::string key, LanguageConstruct *type) {
+    for(auto pair : elements){
+      if(pair.first == key){
+        return;
+      }
+    }
     elements.push_back({key, type});
   }
 

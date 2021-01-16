@@ -9,6 +9,7 @@
 
 #include <iostream>
 
+
 /// Convert MLIR to Murphi -- OLD WAY
 void mlir::target::ModuleToMurphi(mlir::ModuleOp op,
                                   mlir::raw_ostream &output) {
@@ -283,58 +284,88 @@ void addCacheDirectoryObjectDefinitions(target::murphi::Module &m) {
   m.addUnion(machines);
 }
 
-void addCacheDirectoryDefinitions(target::murphi::Module &m, mlir::ModuleOp op) {
+void addCacheDirectoryDefinitions(target::murphi::Module &m,
+                                  mlir::ModuleOp op) {
   target::murphi::Record *cache = new target::murphi::Record("ENTRY_cache");
-  target::murphi::Record *directory = new target::murphi::Record("ENTRY_directory");
-  op.walk([&](mlir::murphi::CacheDefOp cacheDef){
-      auto fieldsAttr = cacheDef.getAttr("fields").cast<mlir::ArrayAttr>();
-      auto typesAttr = cacheDef.getAttr("types").cast<mlir::ArrayAttr>();
-      for(int i = 0; i < fieldsAttr.size(); i++){
-        std::string fieldName = fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
-        std::string typeName = typesAttr[i].cast<mlir::StringAttr>().getValue().str();
-        std::string typeId;
-        std::cout << typeName << std::endl;
-        if(fieldName == "State"){
-          typeId = "cache_state";
-        } else if(typeName == "Data"){
-          typeId = "ClValue";
-        } else if(typeName == "ID"){
-          typeId = "Machines";
-        }
-        // Push each element into the data structure
-        cache->addEntry(fieldName, m.findReference(typeId));
+  target::murphi::Record *directory =
+      new target::murphi::Record("ENTRY_directory");
+  op.walk([&](mlir::murphi::CacheDefOp cacheDef) {
+    auto fieldsAttr = cacheDef.getAttr("fields").cast<mlir::ArrayAttr>();
+    auto typesAttr = cacheDef.getAttr("types").cast<mlir::ArrayAttr>();
+    for (int i = 0; i < (int)fieldsAttr.size(); i++) {
+      std::string fieldName =
+          fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
+      std::string typeName =
+          typesAttr[i].cast<mlir::StringAttr>().getValue().str();
+      std::string typeId;
+      if (fieldName == "State") {
+        typeId = "cache_state";
+      } else if (typeName == "Data") {
+        typeId = "ClValue";
+      } else if (typeName == "ID") {
+        typeId = "Machines";
       }
-      cache->addEntry("Perm", m.findReference("Access"));
+      // Push each element into the data structure
+      cache->addEntry(fieldName, m.findReference(typeId));
+    }
+    cache->addEntry("Perm", m.findReference("Access"));
   });
 
-    op.walk([&](mlir::murphi::DirectoryDefOp directoryDef){
-      auto fieldsAttr = directoryDef.getAttr("fields").cast<mlir::ArrayAttr>();
-      auto typesAttr = directoryDef.getAttr("types").cast<mlir::ArrayAttr>();
-      for(int i = 0; i < fieldsAttr.size(); i++){
-        std::string fieldName = fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
-        std::string typeName = typesAttr[i].cast<mlir::StringAttr>().getValue().str();
-        std::string typeId;
-        std::cout << typeName << std::endl;
-        if(fieldName == "State"){
-          typeId = "directory_state";
-        } else if(typeName == "Data"){
-          typeId = "ClValue";
-        } else if(typeName == "ID"){
-          typeId = "Machines";
-        }
-        // Push each element into the data structure
-        directory->addEntry(fieldName, m.findReference(typeId));
+  op.walk([&](mlir::murphi::DirectoryDefOp directoryDef) {
+    auto fieldsAttr = directoryDef.getAttr("fields").cast<mlir::ArrayAttr>();
+    auto typesAttr = directoryDef.getAttr("types").cast<mlir::ArrayAttr>();
+    for (int i = 0; i < (int)fieldsAttr.size(); i++) {
+      std::string fieldName =
+          fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
+      std::string typeName =
+          typesAttr[i].cast<mlir::StringAttr>().getValue().str();
+      std::string typeId;
+      if (fieldName == "State") {
+        typeId = "directory_state";
+      } else if (typeName == "Data") {
+        typeId = "ClValue";
+      } else if (typeName == "ID") {
+        typeId = "Machines";
       }
-      directory->addEntry("Perm", m.findReference("Access"));
+      // Push each element into the data structure
+      directory->addEntry(fieldName, m.findReference(typeId));
+    }
+    directory->addEntry("Perm", m.findReference("Access"));
   });
   // Add Access
-  
+
   m.addRecord(cache);
   m.addRecord(directory);
 }
 
-void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op){
-  
+void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
+  target::murphi::Record *msgDef = new target::murphi::Record("Message");
+  // All messages have default values
+  // Address of the CL
+  msgDef->addEntry("adr", m.findReference("Address"));
+  // Message Type
+  msgDef->addEntry("mtype", m.findReference("MessageType"));
+  // Msg Src
+  msgDef->addEntry("src", m.findReference("Machines"));
+  // Msg Dest
+  msgDef->addEntry("dst", m.findReference("Machines"));
+
+  // Now walk all the Msg Declaration operations and find
+  op.walk([&](mlir::murphi::MessageDefOp op) {
+    auto fieldIds = op.getAttr("fields").cast<mlir::ArrayAttr>();
+    auto typeIds = op.getAttr("types").cast<mlir::ArrayAttr>();
+
+    for (int i = 0; i < (int)fieldIds.size(); i++) {
+      std::string fid = fieldIds[i].cast<mlir::StringAttr>().getValue().str();
+      std::string tid = typeIds[i].cast<mlir::StringAttr>().getValue().str();
+      // TODO -- Make more sophisticated
+      if (tid == "Data") {
+        msgDef->addEntry(fid, m.findReference("ClValue"));
+      }
+    }
+  });
+
+  m.addRecord(msgDef);
 }
 
 target::murphi::Module createModule(mlir::ModuleOp op,
@@ -379,6 +410,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addAddressesAndCl(m);
   addCacheDirectoryObjectDefinitions(m);
   addCacheDirectoryDefinitions(m, op);
+  setupMessageTypes(m, op);
   return m;
 }
 

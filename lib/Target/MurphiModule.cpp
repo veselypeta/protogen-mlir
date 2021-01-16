@@ -41,33 +41,12 @@ bool target::murphi::Module::addRecord(target::murphi::Record *recordDefinition)
 
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
 
+    // print all type construct
     for(auto lc: allConstructs){
         lc->print(stream);
     }
-  // Print out all the Constants
-//   stream << "const\n";
-//   for (auto s : constantsList) {
-//     s.print(stream);
-//   }
 
-//   stream << "\n\n";
-
-//   // Print all Enums
-//   stream << "type\n";
-//   for (auto t : enumList) {
-//     t.print(stream);
-//   }
-
-//   stream << "\n\n";
-//   // Print all Scalarsets
-//   for (auto ss : this->scalarsetList) {
-//     ss.print(stream);
-//   }
-
-//   // print all value ranges
-//   for (auto vl : this->valRangeList) {
-//     vl.print(stream);
-//   }
+    // stream << boiler_plate_definitions << '\n';
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
@@ -76,39 +55,6 @@ target::murphi::Module::findReference(std::string id) {
         return lc;
       }
     }
-  //   return nullptr;
-  // loop over Constsnts
-//   for (int i = 0; i < (int)constantsList.size(); i++) {
-//     target::murphi::Constant *c = &constantsList.data()[i];
-//     if (c->getDefiningId() == id) {
-//       return c;
-//     }
-//   }
-
-//   // loop over Enums
-//   for (int i = 0; i < (int)enumList.size(); i++) {
-//     target::murphi::Enum *e = &enumList.data()[i];
-//     if (e->getDefiningId() == id) {
-//       return e;
-//     }
-//   }
-
-//   // Loop over scalarsets
-//   for (int i = 0; i < (int)scalarsetList.size(); i++) {
-//     target::murphi::Scalarset *s = &scalarsetList.data()[i];
-//     if (s->getDefiningId() == id) {
-//       return s;
-//     }
-//   }
-
-//   // Loop over value ranges
-//   for (int i = 0; i < (int)valRangeList.size(); i++) {
-//     target::murphi::ValRange *v = &valRangeList.data()[i];
-//     if (v->getDefiningId() == id) {
-//       return v;
-//     }
-//   }
-
   return nullptr;
 }
 
@@ -148,12 +94,10 @@ void target::murphi::ValRange::print(mlir::raw_ostream &stream) {
   }
 }
 
-
 // ------- Union ------- //
 void target::murphi::Union::print(mlir::raw_ostream &stream){
     stream << getDefiningId() << ": union{" << unions[0]->getDefiningId() << ", " << unions[1]->getDefiningId() << "};\n";
 }
-
 
 // ------- Record ------- //
 void target::murphi::Record::print(mlir::raw_ostream &stream){

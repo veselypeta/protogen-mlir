@@ -191,5 +191,12 @@ def DirectoryDefOp : Murphi_Op<"directory_definition">{
         let arguments = (ins ArrayAttr:$fields, ArrayAttr:$types);
 }
 
+def MessageDefOp : Murphi_Op<"message_definition">{
+        let summary = "message defintion";
+        let description = [{}];
+
+        let arguments = (ins AnyAttr:$id, ArrayAttr:$fields, ArrayAttr:$types);
+}
+
 
 #endif // MURPHI_OPS

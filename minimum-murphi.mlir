@@ -11,6 +11,11 @@ module {
     "murphi.cache_definition" () {fields=["State", "cl"], types=["I", "Data"]} : () -> ()
     "murphi.directory_definition"() {fields=["State", "cl", "owner"], types=["I", "Data", "ID"]} : () -> ()
 
+    "murphi.message_definition"() {id="Request", fields=[], types=[]} : () -> ()
+    "murphi.message_definition"() {id="Ack", fields=[], types=[]} : () -> ()
+    "murphi.message_definition"() {id="Response", fields=["cl"], types=["Data"]} : () -> ()
+    "murphi.message_definition"() {id="RespAck", fields=["cl"], types=["Data"]} : () -> ()
+
 
     // %Request = "murphi.message_decl"(){id="Request", types=[]} : () -> i64
     // %Ack = "murphi.message_decl"(){id="Ack", types=[]} : () -> i64
