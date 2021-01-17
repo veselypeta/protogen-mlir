@@ -56,6 +56,11 @@ bool target::murphi::Module::addMessageConstructor(
   return true;
 }
 
+bool target::murphi::Module::addSendFunction(target::murphi::SendFunction *sendFunc){
+  sendFunctions.push_back(sendFunc);
+  return true;
+}
+
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
   // ----- Print the constants ----- //
   stream << "const\n\n";
@@ -81,6 +86,10 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   }
 
   // ----- Print the Send helper function ----- //
+  for (auto sf : sendFunctions){
+    sf->print(stream);
+  }
+
   // ----- Print cache and directory funcitons ----- //
   // ----- Print cache and directory load/store functions ----- //
   // ----- Print cache ruleset ----- //
@@ -110,6 +119,18 @@ target::murphi::Module::findReference(std::string id) {
     }
   }
   // Search Message Constructors
+    for(auto mc : this->msgContructors){
+    if(mc->getDefiningId() == id){
+      return mc;
+    }
+  }
+  // Search Send Functions
+    for(auto sf : this->sendFunctions){
+    if(sf->getDefiningId() == id){
+      return sf;
+    }
+  }
+
   return nullptr;
 }
 
@@ -206,4 +227,18 @@ void target::murphi::MessageContructor::print(mlir::raw_ostream &stream) {
     fieldDefs += ";\n";
   }
   stream << message_constructor(id, msgParams, fieldDefs);
+}
+
+// ------- SendFunction ------- //
+void target::murphi::SendFunction::print(mlir::raw_ostream &stream){
+  switch (ordering)
+  {
+  case target::murphi::NetworkOrder::Ordered:
+    stream << "Ordered Send\n";
+    break;
+  
+  case target::murphi::NetworkOrder::Unordered:
+    stream << "Unordered Send \n";
+    break;
+  }
 }

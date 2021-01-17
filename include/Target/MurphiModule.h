@@ -9,6 +9,8 @@
 namespace target {
 namespace murphi {
 
+enum NetworkOrder { Ordered, Unordered };
+
 class LanguageConstruct {
 public:
   virtual std::string getDefiningId() = 0;
@@ -154,7 +156,7 @@ public:
   MessageContructor(std::string msgId, LanguageConstruct *msgDef)
       : id{msgId}, messageDef{msgDef} {}
   virtual void print(mlir::raw_ostream &stream);
-  virtual std::string getDefiningId(){return id;}
+  virtual std::string getDefiningId() { return id; }
   void addExtraField(std::string fieldName) {
     extraFields.push_back(fieldName);
   }
@@ -165,7 +167,15 @@ private:
   std::vector<std::string> extraFields;
 };
 
-
+class SendFunction : public LanguageConstruct {
+public:
+  SendFunction(std::string netId, NetworkOrder ordering) : netId{netId}, ordering{ordering} {}
+  virtual void print(mlir::raw_ostream &stream);
+  virtual std::string getDefiningId(){return "Send_" + netId;}
+private:
+  std::string netId;
+  NetworkOrder ordering;
+};
 
 class Module {
 public:
@@ -178,6 +188,7 @@ public:
   bool addBoilerplate(target::murphi::Boilerplate *boilerplate);
   bool addVariable(target::murphi::Variable *var);
   bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
+  bool addSendFunction(target::murphi::SendFunction *sendFunc);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
@@ -196,6 +207,16 @@ public:
     for (auto var : variables) {
       delete var;
     }
+
+    // Delete Message Constructors
+    for(auto mc : msgContructors){
+      delete mc;
+    }
+
+    // Delete Send Functions
+    for (auto sf : sendFunctions){
+      delete sf;
+    }
   }
 
 private:
@@ -209,7 +230,7 @@ private:
   std::vector<Variable *> variables;
 
   std::vector<MessageContructor *> msgContructors;
-
+  std::vector<SendFunction *> sendFunctions;
 };
 
 } // namespace murphi
