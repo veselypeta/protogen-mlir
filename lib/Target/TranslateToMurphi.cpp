@@ -1,5 +1,5 @@
-#include "Murphi/Dialect.h"
 #include "Target/TranslateToMurphi.h"
+#include "Murphi/Dialect.h"
 #include "Target/MurphiModule.h"
 #include "Target/MurphiTemplates.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -143,20 +143,44 @@ void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
   m.addRecord(msgDef);
 }
 
-void addBoilerplateTypes(target::murphi::Module &m){
-  target::murphi::Boilerplate *boilerplateTypes = new target::murphi::Boilerplate("boilerplateTypes");
-  m.addBoilerplate(boilerplateTypes);
+void addBoilerplateTypes(target::murphi::Module &m) {
+  target::murphi::Boilerplate *mcache =
+      new target::murphi::Boilerplate("MACH_cache", MACH_cache);
+  target::murphi::Boilerplate *mdir =
+      new target::murphi::Boilerplate("MACH_directory", MACH_directory);
+  target::murphi::Boilerplate *objcache =
+      new target::murphi::Boilerplate("OBJ_cache", OBJ_cache);
+  target::murphi::Boilerplate *objdir =
+      new target::murphi::Boilerplate("OBJ_directory", OBJ_directory);
+  target::murphi::Boilerplate *objorder =
+      new target::murphi::Boilerplate("OBJ_Ordered", OBJ_Ordered);
+  target::murphi::Boilerplate *ordercnt =
+      new target::murphi::Boilerplate("OBJ_Orderdcnt", OBJ_Orderedcnt);
+  target::murphi::Boilerplate *objunorder =
+      new target::murphi::Boilerplate("MACH_cache", OBJ_Unordered);
+
+  m.addBoilerplate(mcache);
+  m.addBoilerplate(mdir);
+  m.addBoilerplate(objcache);
+  m.addBoilerplate(objdir);
+  m.addBoilerplate(objorder);
+  m.addBoilerplate(ordercnt);
+  m.addBoilerplate(objunorder);
 }
 
-void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op){
-  target::murphi::LanguageConstruct *messageDeclaration = m.findReference("Message");
-  op.walk([&](mlir::murphi::MessageDefOp msgDef){
-    std::string msgId = msgDef.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    target::murphi::MessageContructor *msgConstr = new target::murphi::MessageContructor(msgId, messageDeclaration);
+void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
+  target::murphi::LanguageConstruct *messageDeclaration =
+      m.findReference("Message");
+  op.walk([&](mlir::murphi::MessageDefOp msgDef) {
+    std::string msgId =
+        msgDef.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    target::murphi::MessageContructor *msgConstr =
+        new target::murphi::MessageContructor(msgId, messageDeclaration);
     auto fieldsAttr = msgDef.getAttr("fields").cast<mlir::ArrayAttr>();
     // auto typesAttr = msgDef.getAttr("types").cast<mlir::ArrayAttr>();
-    for(int i = 0; i < (int)fieldsAttr.size(); i++){
-      msgConstr->addExtraField(fieldsAttr[i].cast<mlir::StringAttr>().getValue().str());
+    for (int i = 0; i < (int)fieldsAttr.size(); i++) {
+      msgConstr->addExtraField(
+          fieldsAttr[i].cast<mlir::StringAttr>().getValue().str());
     }
     // ADD MSG CONSTROCTOR TO MODULE
     m.addMessageConstructor(msgConstr);
@@ -208,7 +232,6 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addCacheDirectoryDefinitions(m, op);
   setupMessageTypes(m, op);
   addBoilerplateTypes(m);
-
 
   setupMessageFactories(m, op);
   return m;

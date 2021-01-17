@@ -142,7 +142,7 @@ void target::murphi::Record::print(mlir::raw_ostream &stream) {
 
 // ------- Boilerplate ------- //
 void target::murphi::Boilerplate::print(mlir::raw_ostream &stream){
-  stream << boiler_plate_definitions << "\n";
+  stream << printTemplate;
 }
 
 // ------- MessageConstructor ------- //

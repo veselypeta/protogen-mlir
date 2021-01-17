@@ -17,11 +17,6 @@ module {
     "murphi.message_definition"() {id="RespAck", fields=["cl"], types=["Data"]} : () -> ()
 
 
-    // %Request = "murphi.message_decl"(){id="Request", types=[]} : () -> i64
-    // %Ack = "murphi.message_decl"(){id="Ack", types=[]} : () -> i64
-    // %Response = "murphi.message_decl"(){id="Response", types=["Data:cl"]} : () -> i64
-    // %ResponseAck = "murphi.message_decl"(){id="ResponseAck", type=["Data:cl"]}: () -> i64
-
 
     // Need to know Cache and Directory States (inc transient states)
     // %cacheState = "murphi.enum"(){} : () -> ()

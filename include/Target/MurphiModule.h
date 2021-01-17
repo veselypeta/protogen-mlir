@@ -125,12 +125,13 @@ private:
 
 class Boilerplate : public LanguageConstruct {
   public:
-    Boilerplate(std::string id) : id{id} {}
+    Boilerplate(std::string id, std::string printTemplate) : id{id}, printTemplate{printTemplate} {}
     virtual std::string getDefiningId() { return id; }
     virtual void print(mlir::raw_ostream &stream);
 
   private:
   std::string id;
+  std::string printTemplate;
 };
 
 class MessageContructor {

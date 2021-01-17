@@ -1,23 +1,35 @@
 #include "Target/MurphiTemplates.h"
 #include <string>
 
-std::string boiler_plate_definitions = " \
--- create a cache entry for every block of the address space \n\
+std::string MACH_cache = "\
 MACH_cache: record \n\
   CL: array[Address] of ENTRY_cache;\n\
 end; \n\
--- create directory entry for every block in the address space \n\
+";
+
+std::string MACH_directory = "\
 MACH_directory: record \n\
   CL: array[Address] of ENTRY_directory; \n\
 end; \n\
-\n\
--- all cache and directory objects \n\
+";
+
+std::string OBJ_cache = "\
 OBJ_cache : array[OBJSET_cache] of MACH_cache; \n\
+";
+
+std::string OBJ_directory = "\
 OBJ_directory : array[OBJSET_directory] of MACH_directory; \n\
-\n\
--- an array for every machine with an array of messages (message queue) \n\
+";
+
+std::string OBJ_Ordered = "\
 OBJ_Ordered: array[Machines] of array[0..O_NET_MAX-1] of Message; \n\
+";
+
+std::string OBJ_Orderedcnt = "\
 OBJ_Orderedcnt: array[Machines] of 0..O_NET_MAX; \n\
+";
+
+std::string OBJ_Unordered = "\
 OBJ_Unordered: array[Machines] of multiset[U_NET_MAX] of Message; \n\
 ";
 
