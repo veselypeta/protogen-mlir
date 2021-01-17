@@ -155,9 +155,9 @@ void addBoilerplateTypes(target::murphi::Module &m) {
   target::murphi::Boilerplate *objorder =
       new target::murphi::Boilerplate("OBJ_Ordered", OBJ_Ordered);
   target::murphi::Boilerplate *ordercnt =
-      new target::murphi::Boilerplate("OBJ_Orderdcnt", OBJ_Orderedcnt);
+      new target::murphi::Boilerplate("OBJ_Orderedcnt", OBJ_Orderedcnt);
   target::murphi::Boilerplate *objunorder =
-      new target::murphi::Boilerplate("MACH_cache", OBJ_Unordered);
+      new target::murphi::Boilerplate("OBJ_Unordered", OBJ_Unordered);
 
   m.addBoilerplate(mcache);
   m.addBoilerplate(mdir);
@@ -168,12 +168,34 @@ void addBoilerplateTypes(target::murphi::Module &m) {
   m.addBoilerplate(objunorder);
 }
 
-void addVariableDeclarations(target::murphi::Module &m){
-  target::murphi::Variable *i_cache = new target::murphi::Variable("i_cache", m.findReference("OBJ_cache"));
-  target::murphi::Variable *i_directory = new target::murphi::Variable("i_directory", m.findReference("OBJ_directory"));
-
+void addVariableDeclarations(target::murphi::Module &m, mlir::ModuleOp op) {
+  // ADD CACHE AND DIRECTORY VARIABLES
+  target::murphi::Variable *i_cache =
+      new target::murphi::Variable("i_cache", m.findReference("OBJ_cache"));
+  target::murphi::Variable *i_directory = new target::murphi::Variable(
+      "i_directory", m.findReference("OBJ_directory"));
   m.addVariable(i_cache);
   m.addVariable(i_directory);
+
+  // find network declarations
+  op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
+    std::string netId =
+        netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    std::string netOrder =
+        netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+    if (netOrder == "Ordered") {
+      // if ordered we need to generate the network and the count
+      target::murphi::Variable *netVar = new target::murphi::Variable(netId, m.findReference("OBJ_Ordered"));
+      target::murphi::Variable *netCount = new target::murphi::Variable(netId, m.findReference("OBJ_Orderedcnt"));
+      m.addVariable(netVar);
+      m.addVariable(netCount);
+
+    } else {
+      target::murphi::Variable *netVar =
+          new target::murphi::Variable(netId, m.findReference("OBJ_Unordered"));
+      m.addVariable(netVar);
+    }
+  });
 }
 
 void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
@@ -240,7 +262,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addCacheDirectoryDefinitions(m, op);
   setupMessageTypes(m, op);
   addBoilerplateTypes(m);
-  addVariableDeclarations(m);
+  addVariableDeclarations(m, op);
 
   setupMessageFactories(m, op);
   return m;

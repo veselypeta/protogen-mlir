@@ -198,5 +198,21 @@ def MessageDefOp : Murphi_Op<"message_definition">{
         let arguments = (ins AnyAttr:$id, ArrayAttr:$fields, ArrayAttr:$types);
 }
 
+def NetworkDeclOp: Murphi_Op<"network_decl", []> {
+
+        let summary = "operation to declare global network";
+
+        let description = [{
+
+                Example:
+                ```mlir
+                        "pcc.network_decl"() {ordering: "Ordered", id: "fwd"} : () -> ()
+                ```
+        }];
+
+        let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
+
+}
+
 
 #endif // MURPHI_OPS

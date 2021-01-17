@@ -16,7 +16,9 @@ module {
     "murphi.message_definition"() {id="Response", fields=["cl"], types=["Data"]} : () -> ()
     "murphi.message_definition"() {id="RespAck", fields=["cl"], types=["Data"]} : () -> ()
 
-
+    "murphi.network_decl"() {ordering ="Ordered", id="fwd"} : () -> ()
+    "murphi.network_decl"() {ordering="Unordered", id="resp"} : () -> ()
+    "murphi.network_decl"() {ordering="Unordered", id="req"} : () -> ()
 
     // Need to know Cache and Directory States (inc transient states)
     // %cacheState = "murphi.enum"(){} : () -> ()

@@ -149,11 +149,12 @@ private:
   LanguageConstruct *typeId;
 };
 
-class MessageContructor {
+class MessageContructor : public LanguageConstruct {
 public:
   MessageContructor(std::string msgId, LanguageConstruct *msgDef)
       : id{msgId}, messageDef{msgDef} {}
-  void print(mlir::raw_ostream &stream);
+  virtual void print(mlir::raw_ostream &stream);
+  virtual std::string getDefiningId(){return id;}
   void addExtraField(std::string fieldName) {
     extraFields.push_back(fieldName);
   }
@@ -163,6 +164,8 @@ private:
   LanguageConstruct *messageDef;
   std::vector<std::string> extraFields;
 };
+
+
 
 class Module {
 public:
@@ -206,6 +209,7 @@ private:
   std::vector<Variable *> variables;
 
   std::vector<MessageContructor *> msgContructors;
+
 };
 
 } // namespace murphi

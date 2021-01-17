@@ -63,7 +63,6 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
     constDecl->print(stream);
   }
 
-
   // ----- Print the type definitions ----- //
   stream << "type\n\n";
   for (auto td : typeDefs) {
@@ -80,6 +79,15 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   for (auto mc : msgContructors) {
     mc->print(stream);
   }
+
+  // ----- Print the Send helper function ----- //
+  // ----- Print cache and directory funcitons ----- //
+  // ----- Print cache and directory load/store functions ----- //
+  // ----- Print cache ruleset ----- //
+  // ----- Print network rulesets (EASY)----- //
+  // ----- Print startstates ----- //
+  // ----- Print Invariant (EASY)----- //
+
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
@@ -95,6 +103,13 @@ target::murphi::Module::findReference(std::string id) {
       return cd;
     }
   }
+  // Search Variables
+  for(auto var : this->variables){
+    if(var->getDefiningId() == id){
+      return var;
+    }
+  }
+  // Search Message Constructors
   return nullptr;
 }
 
