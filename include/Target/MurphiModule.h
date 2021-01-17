@@ -149,7 +149,11 @@ public:
   LanguageConstruct *findReference(std::string id);
 
   ~Module() {
-    for (auto lc : allConstructs) {
+    for(auto cd : constantsList){
+      delete cd;
+    }
+    // Delete Type Defs
+    for (auto lc : typeDefs) {
       delete lc;
     }
   }
@@ -161,7 +165,7 @@ private:
   std::vector<ValRange *> valRangeList;
   std::vector<Union *> unionList;
   std::vector<Record *> recordList;
-  std::vector<LanguageConstruct *> allConstructs;
+  std::vector<LanguageConstruct *> typeDefs;
 
   std::vector<MessageContructor *> msgContructors;
 };

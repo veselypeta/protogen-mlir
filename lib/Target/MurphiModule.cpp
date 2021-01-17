@@ -5,39 +5,38 @@
 
 bool target::murphi::Module::addConstant(target::murphi::Constant *constDecl) {
   constantsList.push_back(constDecl);
-  allConstructs.push_back(constDecl);
   return true;
 }
 
 bool target::murphi::Module::addEnum(target::murphi::Enum *enumDecl) {
   enumList.push_back(enumDecl);
-  allConstructs.push_back(enumDecl);
+  typeDefs.push_back(enumDecl);
   return true;
 }
 bool target::murphi::Module::addScalarset(
     target::murphi::Scalarset *scalarsetDeclaration) {
   scalarsetList.push_back(scalarsetDeclaration);
-  allConstructs.push_back(scalarsetDeclaration);
+  typeDefs.push_back(scalarsetDeclaration);
   return true;
 }
 
 bool target::murphi::Module::addValRange(
     target::murphi::ValRange *valRangeDecl) {
   valRangeList.push_back(valRangeDecl);
-  allConstructs.push_back(valRangeDecl);
+  typeDefs.push_back(valRangeDecl);
   return true;
 }
 
 bool target::murphi::Module::addUnion(target::murphi::Union *unionDefinition) {
   unionList.push_back(unionDefinition);
-  allConstructs.push_back(unionDefinition);
+  typeDefs.push_back(unionDefinition);
   return true;
 }
 
 bool target::murphi::Module::addRecord(
     target::murphi::Record *recordDefinition) {
   recordList.push_back(recordDefinition);
-  allConstructs.push_back(recordDefinition);
+  typeDefs.push_back(recordDefinition);
   return true;
 }
 
@@ -48,11 +47,20 @@ bool target::murphi::Module::addMessageConstructor(
 }
 
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
-
-  // print all type construct
-  for (auto lc : allConstructs) {
-    lc->print(stream);
+  // ----- Print the constants ----- //
+  stream << "const\n\n";
+  for(auto constDecl : constantsList){
+    constDecl->print(stream);
   }
+
+
+  // ----- Print the type definitions ----- //
+  stream << "type\n\n";
+  for (auto td : typeDefs) {
+    td->print(stream);
+  }
+  
+  // ----- Print the var Declarations ----- //
 
   for (auto mc : msgContructors) {
     mc->print(stream);
@@ -60,9 +68,16 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
-  for (auto lc : this->allConstructs) {
+  // Search the Typedefs
+  for (auto lc : this->typeDefs) {
     if (lc->getDefiningId() == id) {
       return lc;
+    }
+  }
+  // Search the constants
+  for (auto cd : this->constantsList) {
+    if (cd->getDefiningId() == id) {
+      return cd;
     }
   }
   return nullptr;
