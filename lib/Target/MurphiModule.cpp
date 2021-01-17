@@ -234,11 +234,12 @@ void target::murphi::SendFunction::print(mlir::raw_ostream &stream){
   switch (ordering)
   {
   case target::murphi::NetworkOrder::Ordered:
-    stream << "Ordered Send\n";
+    stream << ordered_send_proc(netId);
+    stream << ordered_pop_proc(netId);
     break;
   
   case target::murphi::NetworkOrder::Unordered:
-    stream << "Unordered Send \n";
+    stream << unordered_send_proc(netId);
     break;
   }
 }
