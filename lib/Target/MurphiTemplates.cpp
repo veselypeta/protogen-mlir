@@ -120,6 +120,10 @@ ruleset n:Machines do\n\
 endruleset;\n\
 ";
 
+std::string variable_template = "\
+\t{} : {};\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -143,4 +147,8 @@ std::string ordered_ruleset(std::string netId) {
 std::string message_constructor(std::string msgId, std::string msgParams,
                                 std::string fieldDefs) {
   return fmt::format(msg_constructor_template, msgId, msgParams, fieldDefs);
+}
+
+std::string variable_decl(std::string varId, std::string typeId){
+  return fmt::format(variable_template, varId, typeId);
 }

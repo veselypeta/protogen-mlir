@@ -45,6 +45,11 @@ bool target::murphi::Module::addBoilerplate(target::murphi::Boilerplate *boilerp
   return true;
 }
 
+bool target::murphi::Module::addVariable(target::murphi::Variable *var){
+  variables.push_back(var);
+  return true;
+}
+
 bool target::murphi::Module::addMessageConstructor(
     target::murphi::MessageContructor *msgConstr) {
   msgContructors.push_back(msgConstr);
@@ -66,7 +71,12 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   }
   
   // ----- Print the var Declarations ----- //
+  stream << "var\n\n";
+  for (auto var : variables){
+    var->print(stream);
+  }
 
+  // ----- Print the message constructors ----- //
   for (auto mc : msgContructors) {
     mc->print(stream);
   }
@@ -144,6 +154,13 @@ void target::murphi::Record::print(mlir::raw_ostream &stream) {
 void target::murphi::Boilerplate::print(mlir::raw_ostream &stream){
   stream << printTemplate;
 }
+
+
+// ------- Variable ------- //
+void target::murphi::Variable::print(mlir::raw_ostream &stream){
+  stream << variable_decl(id, typeId->getDefiningId());
+}
+
 
 // ------- MessageConstructor ------- //
 void target::murphi::MessageContructor::print(mlir::raw_ostream &stream) {

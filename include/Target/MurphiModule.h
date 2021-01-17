@@ -109,14 +109,16 @@ public:
     }
     elements.push_back({key, type});
   }
-  std::pair<std::string, LanguageConstruct *> findEntry(std::string key){
-    for(auto pair : elements){
-      if(pair.first == key){
+  std::pair<std::string, LanguageConstruct *> findEntry(std::string key) {
+    for (auto pair : elements) {
+      if (pair.first == key) {
         return pair;
       }
     }
   }
-  std::vector<std::pair<std::string, LanguageConstruct *>> getElements() {return elements;}
+  std::vector<std::pair<std::string, LanguageConstruct *>> getElements() {
+    return elements;
+  }
 
 private:
   std::string id;
@@ -124,26 +126,41 @@ private:
 };
 
 class Boilerplate : public LanguageConstruct {
-  public:
-    Boilerplate(std::string id, std::string printTemplate) : id{id}, printTemplate{printTemplate} {}
-    virtual std::string getDefiningId() { return id; }
-    virtual void print(mlir::raw_ostream &stream);
+public:
+  Boilerplate(std::string id, std::string printTemplate)
+      : id{id}, printTemplate{printTemplate} {}
+  virtual std::string getDefiningId() { return id; }
+  virtual void print(mlir::raw_ostream &stream);
 
-  private:
+private:
   std::string id;
   std::string printTemplate;
 };
 
-class MessageContructor {
+class Variable : public LanguageConstruct {
 public:
-  MessageContructor(std::string msgId, LanguageConstruct* msgDef) : id{msgId}, messageDef{msgDef} {}
-  void print(mlir::raw_ostream &stream);
-  void addExtraField(std::string fieldName){
-    extraFields.push_back(fieldName);
-  }
+  Variable(std::string id, LanguageConstruct *typeId)
+      : id{id}, typeId{typeId} {}
+  virtual void print(mlir::raw_ostream &stream);
+  virtual std::string getDefiningId() { return id; }
+
 private:
   std::string id;
-  LanguageConstruct* messageDef;
+  LanguageConstruct *typeId;
+};
+
+class MessageContructor {
+public:
+  MessageContructor(std::string msgId, LanguageConstruct *msgDef)
+      : id{msgId}, messageDef{msgDef} {}
+  void print(mlir::raw_ostream &stream);
+  void addExtraField(std::string fieldName) {
+    extraFields.push_back(fieldName);
+  }
+
+private:
+  std::string id;
+  LanguageConstruct *messageDef;
   std::vector<std::string> extraFields;
 };
 
@@ -156,18 +173,25 @@ public:
   bool addUnion(target::murphi::Union *unionDef);
   bool addRecord(target::murphi::Record *record);
   bool addBoilerplate(target::murphi::Boilerplate *boilerplate);
+  bool addVariable(target::murphi::Variable *var);
   bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
   ~Module() {
     // Delete Constants
-    for(auto cd : constantsList){
+    for (auto cd : constantsList) {
       delete cd;
     }
+
     // Delete Type Defs
     for (auto lc : typeDefs) {
       delete lc;
+    }
+
+    // Delete Var Def
+    for (auto var : variables) {
+      delete var;
     }
   }
 
@@ -179,6 +203,7 @@ private:
   std::vector<Union *> unionList;
   std::vector<Record *> recordList;
   std::vector<LanguageConstruct *> typeDefs;
+  std::vector<Variable *> variables;
 
   std::vector<MessageContructor *> msgContructors;
 };

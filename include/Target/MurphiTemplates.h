@@ -16,3 +16,4 @@ std::string ordered_pop_proc(std::string netId);
 std::string unordered_ruleset(std::string netId);
 std::string ordered_ruleset(std::string netId);
 std::string message_constructor(std::string msgId, std::string msgParams, std::string fieldDefs);
+std::string variable_decl(std::string varId, std::string typeId);

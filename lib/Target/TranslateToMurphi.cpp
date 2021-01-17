@@ -168,6 +168,14 @@ void addBoilerplateTypes(target::murphi::Module &m) {
   m.addBoilerplate(objunorder);
 }
 
+void addVariableDeclarations(target::murphi::Module &m){
+  target::murphi::Variable *i_cache = new target::murphi::Variable("i_cache", m.findReference("OBJ_cache"));
+  target::murphi::Variable *i_directory = new target::murphi::Variable("i_directory", m.findReference("OBJ_directory"));
+
+  m.addVariable(i_cache);
+  m.addVariable(i_directory);
+}
+
 void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
   target::murphi::LanguageConstruct *messageDeclaration =
       m.findReference("Message");
@@ -232,6 +240,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addCacheDirectoryDefinitions(m, op);
   setupMessageTypes(m, op);
   addBoilerplateTypes(m);
+  addVariableDeclarations(m);
 
   setupMessageFactories(m, op);
   return m;
