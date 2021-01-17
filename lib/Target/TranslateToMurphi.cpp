@@ -185,8 +185,10 @@ void addVariableDeclarations(target::murphi::Module &m, mlir::ModuleOp op) {
         netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
     if (netOrder == "Ordered") {
       // if ordered we need to generate the network and the count
-      target::murphi::Variable *netVar = new target::murphi::Variable(netId, m.findReference("OBJ_Ordered"));
-      target::murphi::Variable *netCount = new target::murphi::Variable(netId, m.findReference("OBJ_Orderedcnt"));
+      target::murphi::Variable *netVar =
+          new target::murphi::Variable(netId, m.findReference("OBJ_Ordered"));
+      target::murphi::Variable *netCount = new target::murphi::Variable(
+          netId, m.findReference("OBJ_Orderedcnt"));
       m.addVariable(netVar);
       m.addVariable(netCount);
 
@@ -215,6 +217,18 @@ void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
     // ADD MSG CONSTROCTOR TO MODULE
     m.addMessageConstructor(msgConstr);
     return mlir::WalkResult::advance();
+  });
+}
+
+void createSendFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
+  op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
+    std::string netId =
+        netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    std::string netOrder =
+        netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+    target::murphi::NetworkOrder order= netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered : target::murphi::NetworkOrder::Unordered;
+    target::murphi::SendFunction *sendFunc = new target::murphi::SendFunction(netId, order);
+    m.addSendFunction(sendFunc);
   });
 }
 
@@ -265,6 +279,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addVariableDeclarations(m, op);
 
   setupMessageFactories(m, op);
+  createSendFunctions(m, op);
   return m;
 }
 
