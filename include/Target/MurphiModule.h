@@ -123,6 +123,16 @@ private:
   std::vector<std::pair<std::string, LanguageConstruct *>> elements;
 };
 
+class Boilerplate : public LanguageConstruct {
+  public:
+    Boilerplate(std::string id) : id{id} {}
+    virtual std::string getDefiningId() { return id; }
+    virtual void print(mlir::raw_ostream &stream);
+
+  private:
+  std::string id;
+};
+
 class MessageContructor {
 public:
   MessageContructor(std::string msgId, LanguageConstruct* msgDef) : id{msgId}, messageDef{msgDef} {}
@@ -144,11 +154,13 @@ public:
   bool addValRange(target::murphi::ValRange *valRangeDecl);
   bool addUnion(target::murphi::Union *unionDef);
   bool addRecord(target::murphi::Record *record);
+  bool addBoilerplate(target::murphi::Boilerplate *boilerplate);
   bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
   ~Module() {
+    // Delete Constants
     for(auto cd : constantsList){
       delete cd;
     }

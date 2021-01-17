@@ -2,7 +2,7 @@
 #include <fmt/core.h>
 #include <iostream>
 
-// extern std::string boiler_plate_definitions;
+extern std::string boiler_plate_definitions;
 
 // extern std::string unordered_send_proc_template;
 

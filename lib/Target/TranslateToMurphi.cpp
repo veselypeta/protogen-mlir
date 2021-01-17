@@ -143,6 +143,11 @@ void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
   m.addRecord(msgDef);
 }
 
+void addBoilerplateTypes(target::murphi::Module &m){
+  target::murphi::Boilerplate *boilerplateTypes = new target::murphi::Boilerplate("boilerplateTypes");
+  m.addBoilerplate(boilerplateTypes);
+}
+
 void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op){
   target::murphi::LanguageConstruct *messageDeclaration = m.findReference("Message");
   op.walk([&](mlir::murphi::MessageDefOp msgDef){
@@ -202,6 +207,9 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addCacheDirectoryObjectDefinitions(m);
   addCacheDirectoryDefinitions(m, op);
   setupMessageTypes(m, op);
+  addBoilerplateTypes(m);
+
+
   setupMessageFactories(m, op);
   return m;
 }

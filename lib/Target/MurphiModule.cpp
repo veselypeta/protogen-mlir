@@ -40,6 +40,11 @@ bool target::murphi::Module::addRecord(
   return true;
 }
 
+bool target::murphi::Module::addBoilerplate(target::murphi::Boilerplate *boilerplate){
+  typeDefs.push_back(boilerplate);
+  return true;
+}
+
 bool target::murphi::Module::addMessageConstructor(
     target::murphi::MessageContructor *msgConstr) {
   msgContructors.push_back(msgConstr);
@@ -133,6 +138,11 @@ void target::murphi::Record::print(mlir::raw_ostream &stream) {
            << ";\n";
   }
   stream << "end;\n";
+}
+
+// ------- Boilerplate ------- //
+void target::murphi::Boilerplate::print(mlir::raw_ostream &stream){
+  stream << boiler_plate_definitions << "\n";
 }
 
 // ------- MessageConstructor ------- //
