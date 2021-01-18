@@ -40,12 +40,13 @@ bool target::murphi::Module::addRecord(
   return true;
 }
 
-bool target::murphi::Module::addBoilerplate(target::murphi::Boilerplate *boilerplate){
+bool target::murphi::Module::addBoilerplate(
+    target::murphi::Boilerplate *boilerplate) {
   typeDefs.push_back(boilerplate);
   return true;
 }
 
-bool target::murphi::Module::addVariable(target::murphi::Variable *var){
+bool target::murphi::Module::addVariable(target::murphi::Variable *var) {
   variables.push_back(var);
   return true;
 }
@@ -56,15 +57,21 @@ bool target::murphi::Module::addMessageConstructor(
   return true;
 }
 
-bool target::murphi::Module::addSendFunction(target::murphi::SendFunction *sendFunc){
+bool target::murphi::Module::addSendFunction(
+    target::murphi::SendFunction *sendFunc) {
   sendFunctions.push_back(sendFunc);
   return true;
+}
+
+bool target::murphi::Module::addCacheCPUEventFunction(
+    target::murphi::CacheCPUEventFunction *cacheFunc) {
+  cacheCpuEventFunctions.push_back(cacheFunc);
 }
 
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
   // ----- Print the constants ----- //
   stream << "const\n\n";
-  for(auto constDecl : constantsList){
+  for (auto constDecl : constantsList) {
     constDecl->print(stream);
   }
 
@@ -73,10 +80,10 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   for (auto td : typeDefs) {
     td->print(stream);
   }
-  
+
   // ----- Print the var Declarations ----- //
   stream << "var\n\n";
-  for (auto var : variables){
+  for (auto var : variables) {
     var->print(stream);
   }
 
@@ -86,17 +93,19 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   }
 
   // ----- Print the Send helper function ----- //
-  for (auto sf : sendFunctions){
+  for (auto sf : sendFunctions) {
     sf->print(stream);
   }
 
   // ----- Print cache and directory funcitons ----- //
   // ----- Print cache and directory load/store functions ----- //
+  for (auto ef : cacheCpuEventFunctions) {
+    ef->print(stream);
+  }
   // ----- Print cache ruleset ----- //
   // ----- Print network rulesets (EASY)----- //
   // ----- Print startstates ----- //
   // ----- Print Invariant (EASY)----- //
-
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
@@ -113,24 +122,29 @@ target::murphi::Module::findReference(std::string id) {
     }
   }
   // Search Variables
-  for(auto var : this->variables){
-    if(var->getDefiningId() == id){
+  for (auto var : this->variables) {
+    if (var->getDefiningId() == id) {
       return var;
     }
   }
   // Search Message Constructors
-    for(auto mc : this->msgContructors){
-    if(mc->getDefiningId() == id){
+  for (auto mc : this->msgContructors) {
+    if (mc->getDefiningId() == id) {
       return mc;
     }
   }
   // Search Send Functions
-    for(auto sf : this->sendFunctions){
-    if(sf->getDefiningId() == id){
+  for (auto sf : this->sendFunctions) {
+    if (sf->getDefiningId() == id) {
       return sf;
     }
   }
-
+  // Search Cache CPU Event Functions
+  for (auto ef : this->cacheCpuEventFunctions) {
+    if (ef->getDefiningId() == id) {
+      return ef;
+    }
+  }
   return nullptr;
 }
 
@@ -187,16 +201,14 @@ void target::murphi::Record::print(mlir::raw_ostream &stream) {
 }
 
 // ------- Boilerplate ------- //
-void target::murphi::Boilerplate::print(mlir::raw_ostream &stream){
+void target::murphi::Boilerplate::print(mlir::raw_ostream &stream) {
   stream << printTemplate;
 }
 
-
 // ------- Variable ------- //
-void target::murphi::Variable::print(mlir::raw_ostream &stream){
+void target::murphi::Variable::print(mlir::raw_ostream &stream) {
   stream << variable_decl(id, typeId->getDefiningId());
 }
-
 
 // ------- MessageConstructor ------- //
 void target::murphi::MessageContructor::print(mlir::raw_ostream &stream) {
@@ -230,16 +242,20 @@ void target::murphi::MessageContructor::print(mlir::raw_ostream &stream) {
 }
 
 // ------- SendFunction ------- //
-void target::murphi::SendFunction::print(mlir::raw_ostream &stream){
-  switch (ordering)
-  {
+void target::murphi::SendFunction::print(mlir::raw_ostream &stream) {
+  switch (ordering) {
   case target::murphi::NetworkOrder::Ordered:
     stream << ordered_send_proc(netId);
     stream << ordered_pop_proc(netId);
     break;
-  
+
   case target::murphi::NetworkOrder::Unordered:
     stream << unordered_send_proc(netId);
     break;
   }
+}
+
+// ------- Cache CPU Event Functions ------- //
+void target::murphi::CacheCPUEventFunction::print(mlir::raw_ostream &stream) {
+  stream << cache_load_store_proc(cacheState, cpuEvent, "\n\n\n");
 }

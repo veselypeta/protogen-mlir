@@ -169,12 +169,29 @@ private:
 
 class SendFunction : public LanguageConstruct {
 public:
-  SendFunction(std::string netId, NetworkOrder ordering) : netId{netId}, ordering{ordering} {}
+  SendFunction(std::string netId, NetworkOrder ordering)
+      : netId{netId}, ordering{ordering} {}
   virtual void print(mlir::raw_ostream &stream);
-  virtual std::string getDefiningId(){return "Send_" + netId;}
+  virtual std::string getDefiningId() { return "Send_" + netId; }
+
 private:
   std::string netId;
   NetworkOrder ordering;
+};
+
+class CacheCPUEventFunction : public LanguageConstruct {
+public:
+  CacheCPUEventFunction(std::string cacheState, std::string cpuEvent)
+      : cacheState{cacheState}, cpuEvent{cpuEvent} {}
+  virtual void print(mlir::raw_ostream &stream);
+  virtual std::string getDefiningId() {
+    return "SEND_" + cacheState + "_" + cpuEvent;
+  }
+
+private:
+  std::string cacheState;
+  std::string cpuEvent;
+  // POSSIBLY A SET OF OPERATIONS.....
 };
 
 class Module {
@@ -189,6 +206,8 @@ public:
   bool addVariable(target::murphi::Variable *var);
   bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
   bool addSendFunction(target::murphi::SendFunction *sendFunc);
+  bool
+  addCacheCPUEventFunction(target::murphi::CacheCPUEventFunction *cpuEventFunc);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
@@ -209,13 +228,18 @@ public:
     }
 
     // Delete Message Constructors
-    for(auto mc : msgContructors){
+    for (auto mc : msgContructors) {
       delete mc;
     }
 
     // Delete Send Functions
-    for (auto sf : sendFunctions){
+    for (auto sf : sendFunctions) {
       delete sf;
+    }
+
+    // Delete CPU event functions
+    for (auto ef : cacheCpuEventFunctions) {
+      delete ef;
     }
   }
 
@@ -231,6 +255,8 @@ private:
 
   std::vector<MessageContructor *> msgContructors;
   std::vector<SendFunction *> sendFunctions;
+
+  std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;
 };
 
 } // namespace murphi

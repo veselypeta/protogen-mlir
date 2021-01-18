@@ -226,9 +226,31 @@ void createSendFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
         netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
     std::string netOrder =
         netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
-    target::murphi::NetworkOrder order= netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered : target::murphi::NetworkOrder::Unordered;
-    target::murphi::SendFunction *sendFunc = new target::murphi::SendFunction(netId, order);
+    target::murphi::NetworkOrder order =
+        netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered
+                              : target::murphi::NetworkOrder::Unordered;
+    target::murphi::SendFunction *sendFunc =
+        new target::murphi::SendFunction(netId, order);
     m.addSendFunction(sendFunc);
+  });
+}
+
+void addCacheCPUEventFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
+  op.walk([&](mlir::murphi::FunctionOp funcOp) {
+    std::string action =
+        funcOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    if (action == "load" || action == "store" || action == "evict") {
+      std::string curState =
+          funcOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+      target::murphi::CacheCPUEventFunction *cacheFunc =
+          new target::murphi::CacheCPUEventFunction(curState, action);
+      // Walk the nested Operations in the function and generate Murphi for them
+      funcOp.getRegion().walk([&](mlir::Operation *anyop) {
+
+      });
+      m.addCacheCPUEventFunction(cacheFunc);
+    }
+    return mlir::WalkResult::advance();
   });
 }
 
@@ -280,6 +302,8 @@ target::murphi::Module createModule(mlir::ModuleOp op,
 
   setupMessageFactories(m, op);
   createSendFunctions(m, op);
+
+  addCacheCPUEventFunctions(m, op, output);
   return m;
 }
 
@@ -288,17 +312,13 @@ void registerToMurphiTranslation() {
   mlir::TranslateFromMLIRRegistration registration(
       "mlir-to-murphi",
       [](mlir::ModuleOp op, mlir::raw_ostream &output) {
-        // TODO -- Run work here;
-        // mlir::target::ModuleToMurphi(op, output);
         auto module = createModule(op, output);
         module.print(output);
-        // target::murphi::Module module;
-        // target::murphi::Module m;
-
         return mlir::success();
       },
       [](mlir::DialectRegistry &registry) {
         registry.insert<mlir::murphi::MurphiDialect>();
+        registry.insert<mlir::StandardOpsDialect>();
       });
 }
 } // namespace mlir

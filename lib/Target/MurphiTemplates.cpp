@@ -124,6 +124,16 @@ std::string variable_template = "\
 \t{} : {};\n\
 ";
 
+std::string cache_load_store_proc_template = "\
+procedure SEND_{0}_{1}(adr:Address; m:OBJSET_cache);\n\
+var msg: Message;\n\
+begin\n\
+  alias cle: i_cache[m].CL[adr] do\n\
+{2} \n\
+endalias;\n\
+end;\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -149,6 +159,12 @@ std::string message_constructor(std::string msgId, std::string msgParams,
   return fmt::format(msg_constructor_template, msgId, msgParams, fieldDefs);
 }
 
-std::string variable_decl(std::string varId, std::string typeId){
+std::string variable_decl(std::string varId, std::string typeId) {
   return fmt::format(variable_template, varId, typeId);
+}
+
+std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
+                                  std::string funcBody) {
+  return fmt::format(cache_load_store_proc_template, curState, cpuEvent,
+                     funcBody);
 }

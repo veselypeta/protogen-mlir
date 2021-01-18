@@ -31,25 +31,12 @@ def ConstantOp : Murphi_Op<"constant", [NoSideEffect]> {
     ];
 }
 
-def ConstantDecl: Murphi_Op<"constant_decl"> {
-        let summary = "group all contant operation";
-        let description = [{"In Murphi Constants are group with the const keyword:
-                const
-                        nrCache : 3;
-                        ADR_COUNT : 1;
+def EnumOp : Murphi_Op<"enum"> {
+        let summary = "declare an enum";
+        let description = [{}];
 
-                
-                Example:
-                ```mlir
-                        "murphi.constant_decl() ( {
-                                %0 = "murphi.constant" () {value = 3, id = "nrCaches"} : () -> ()
-                                %1 = "murphi.constant" () {value = 1, id = "ADR_COUNT"} : () -> ()
-                        })
-                ```
-
-        "}];
-
-        let regions = (region SizedRegion<1>:$region);
+        let arguments = (ins AnyAttr: $id, ArrayAttr:$values);
+        let results = (outs AnyType);
 }
 
 def ReturnOp : Murphi_Op<"return", [NoSideEffect, Terminator]> {
@@ -71,108 +58,12 @@ def ReturnOp : Murphi_Op<"return", [NoSideEffect, Terminator]> {
   let arguments = (ins Optional<AnyType>:$ret);
 }
 
-def TypeDeclOp : Murphi_Op<"type_decl"> {
-        let summary = "Group all Type Declaration";
-        let description = [{"In Murphi Types are group with the type keyword:
-                type
-                        Access: enum {
-                                none,
-                                load,
-                                store
-                        };
-
-                        MessageType : enum {
-                                GetM,
-                                Fwd_GetM,
-                                GetM_Ack_D,
-                                PutM,
-                                Put_Ack
-                        };
-
-                
-                Example:
-                ```mlir
-                        "murphi.type_decl() ( {
-                                
-                        })
-                ```
-
-        "}];
-        let regions = (region SizedRegion<1>:$region);
-}
-
-def EnumOp : Murphi_Op<"enum"> {
-        let summary = "declare an enum";
-        let description = [{}];
-
-        let arguments = (ins AnyAttr: $id, ArrayAttr:$values);
-        let results = (outs AnyType);
-}
-
-def ScalarsetOp : Murphi_Op<"scalarset">{
-        let summary = "declare a scalarset operation";
-        let description = [{}];
-
-        let arguments = (ins AnyAttr:$id, AnyType:$value);
-        let results = (outs AnyType);
-}
-
-def SubrangeOp : Murphi_Op<"subrange">{
-        let summary = "define an integer subrange";
-        let description = [{}];
-
-        let arguments = (ins AnyType:$start, AnyType:$end, AnyAttr:$id);
-        let results = (outs AnyType);
-}
-
-def UnionOp : Murphi_Op<"union">{
-        let summary = "define a union of enums";
-        let description = [{}];
-
-        let arguments = (ins Variadic<AnyType>:$input, AnyAttr:$id);
-
-        let results = (outs AnyType);
-}
-
-def RecordOp : Murphi_Op<"record">{
-        let summary = "define a record/object";
-        let description = [{}];
-
-        let arguments = (ins Variadic<AnyType>:$input, AnyAttr:$id, ArrayAttr:$valueIds);
-        let results = (outs AnyType);
-}
-
-def ArrayOp : Murphi_Op<"array">{
-        let summary = "define an array in murphi";
-
-        let description = [{}];
-
-        let arguments = (ins AnyType:$arrySize, AnyType:$arrayType, AnyAttr:$id);
-        let results = (outs AnyType);
-}
-
-def MultisetOp : Murphi_Op<"multiset">{
-        let summary = "define multiset Op";
-        let description = [{}];
-
-        let arguments = (ins AnyType:$size, AnyType:$type, AnyAttr:$id);
-        let results = (outs AnyType);
-}
-
-def VarDeclOp : Murphi_Op<"var_decl">{
-        let summary = "declare a variable";
-        let description = [{}];
-
-        let arguments = (ins AnyType:$typeExpr, AnyAttr:$id);
-        let results = (outs AnyType);
-}
 
 def FunctionOp : Murphi_Op<"function">{
         let summary = "represent a murphi function";
         let description = [{}];
 
-        let arguments = (ins Variadic<AnyType>:$inputs, AnyType:$output, ArrayAttr:$params, AnyAttr: $id);
-        let results = (outs AnyType);
+        let arguments = (ins AnyAttr:$machine, AnyAttr:$cur_state, AnyAttr:$action);
 
         let regions = (region SizedRegion<1>:$region);
 }
@@ -213,6 +104,122 @@ def NetworkDeclOp: Murphi_Op<"network_decl", []> {
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
 
 }
+
+
+
+
+
+// def TypeDeclOp : Murphi_Op<"type_decl"> {
+//         let summary = "Group all Type Declaration";
+//         let description = [{"In Murphi Types are group with the type keyword:
+//                 type
+//                         Access: enum {
+//                                 none,
+//                                 load,
+//                                 store
+//                         };
+
+//                         MessageType : enum {
+//                                 GetM,
+//                                 Fwd_GetM,
+//                                 GetM_Ack_D,
+//                                 PutM,
+//                                 Put_Ack
+//                         };
+
+                
+//                 Example:
+//                 ```mlir
+//                         "murphi.type_decl() ( {
+                                
+//                         })
+//                 ```
+
+//         "}];
+//         let regions = (region SizedRegion<1>:$region);
+// }
+
+
+
+// def ScalarsetOp : Murphi_Op<"scalarset">{
+//         let summary = "declare a scalarset operation";
+//         let description = [{}];
+
+//         let arguments = (ins AnyAttr:$id, AnyType:$value);
+//         let results = (outs AnyType);
+// }
+
+// def SubrangeOp : Murphi_Op<"subrange">{
+//         let summary = "define an integer subrange";
+//         let description = [{}];
+
+//         let arguments = (ins AnyType:$start, AnyType:$end, AnyAttr:$id);
+//         let results = (outs AnyType);
+// }
+
+// def UnionOp : Murphi_Op<"union">{
+//         let summary = "define a union of enums";
+//         let description = [{}];
+
+//         let arguments = (ins Variadic<AnyType>:$input, AnyAttr:$id);
+
+//         let results = (outs AnyType);
+// }
+
+// def RecordOp : Murphi_Op<"record">{
+//         let summary = "define a record/object";
+//         let description = [{}];
+
+//         let arguments = (ins Variadic<AnyType>:$input, AnyAttr:$id, ArrayAttr:$valueIds);
+//         let results = (outs AnyType);
+// }
+
+// def ArrayOp : Murphi_Op<"array">{
+//         let summary = "define an array in murphi";
+
+//         let description = [{}];
+
+//         let arguments = (ins AnyType:$arrySize, AnyType:$arrayType, AnyAttr:$id);
+//         let results = (outs AnyType);
+// }
+
+// def MultisetOp : Murphi_Op<"multiset">{
+//         let summary = "define multiset Op";
+//         let description = [{}];
+
+//         let arguments = (ins AnyType:$size, AnyType:$type, AnyAttr:$id);
+//         let results = (outs AnyType);
+// }
+
+// def VarDeclOp : Murphi_Op<"var_decl">{
+//         let summary = "declare a variable";
+//         let description = [{}];
+
+//         let arguments = (ins AnyType:$typeExpr, AnyAttr:$id);
+//         let results = (outs AnyType);
+// }
+
+
+// def ConstantDecl: Murphi_Op<"constant_decl"> {
+//         let summary = "group all contant operation";
+//         let description = [{"In Murphi Constants are group with the const keyword:
+//                 const
+//                         nrCache : 3;
+//                         ADR_COUNT : 1;
+
+                
+//                 Example:
+//                 ```mlir
+//                         "murphi.constant_decl() ( {
+//                                 %0 = "murphi.constant" () {value = 3, id = "nrCaches"} : () -> ()
+//                                 %1 = "murphi.constant" () {value = 1, id = "ADR_COUNT"} : () -> ()
+//                         })
+//                 ```
+
+//         "}];
+
+//         let regions = (region SizedRegion<1>:$region);
+// }
 
 
 #endif // MURPHI_OPS

@@ -20,10 +20,17 @@ module {
     "murphi.network_decl"() {ordering="Unordered", id="resp"} : () -> ()
     "murphi.network_decl"() {ordering="Unordered", id="req"} : () -> ()
 
-    // Need to know Cache and Directory States (inc transient states)
-    // %cacheState = "murphi.enum"(){} : () -> ()
-    // %directoryState = "murphi.enum"(){} : () -> ()
 
-    // Need the structure of Cache and Directory
+    "murphi.function"()({
+        // msg = Request(GetM, ID, directory.ID);
+        // %msg = "murphi.msg_constr"(){params=["GetM", "ID", "directory.ID"]} : () -> i64
+        // req.send(msg);
+        // "murphi.send"(%msg) : (i64) -> ()
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_I", action="load"} : () -> ()
 
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_I_load", action="GetM_Ack_D"} : () -> ()
+   
 }
