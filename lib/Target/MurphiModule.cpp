@@ -68,6 +68,12 @@ bool target::murphi::Module::addCacheCPUEventFunction(
   cacheCpuEventFunctions.push_back(cacheFunc);
 }
 
+bool target::murphi::Module::addNetworkRuleset(
+    target::murphi::NetworkRuleset rs) {
+  netRulesets.push_back(rs);
+  return true;
+}
+
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
   // ----- Print the constants ----- //
   stream << "const\n\n";
@@ -98,6 +104,8 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   }
 
   // ----- Print cache and directory funcitons ----- //
+
+
   // ----- Print cache and directory load/store functions ----- //
   for (auto ef : cacheCpuEventFunctions) {
     ef->print(stream);
@@ -105,8 +113,12 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   // ----- Print cache ruleset ----- //
   cacheRuleset.print(stream);
   // ----- Print network rulesets (EASY)----- //
+  for (auto nrs : netRulesets) {
+    nrs.print(stream);
+  }
   // ----- Print startstates ----- //
   // ----- Print Invariant (EASY)----- //
+  stream << write_serialization();
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {
@@ -277,4 +289,16 @@ void target::murphi::CacheRuleset::print(mlir::raw_ostream &stream) {
 
 void target::murphi::CacheRuleset::addRule(target::murphi::CacheRule r) {
   rules.push_back(r);
+}
+
+// ------- Network RuleSet ------- //
+void target::murphi::NetworkRuleset::print(mlir::raw_ostream &stream) {
+  switch (ordering) {
+  case target::murphi::NetworkOrder::Ordered:
+    stream << ordered_ruleset(netId);
+    break;
+  case target::murphi::NetworkOrder::Unordered:
+    stream << unordered_ruleset(netId);
+    break;
+  }
 }

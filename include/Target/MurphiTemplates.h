@@ -23,3 +23,4 @@ std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
 
 std::string cache_ruleset(std::string rules);
 std::string cache_rule(std::string curState, std::string cpuEvent);
+std::string write_serialization();

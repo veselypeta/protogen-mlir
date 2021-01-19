@@ -8,6 +8,24 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include <iostream>
 
+bool isCpuEvent(std::string action) {
+  return action == "load" || action == "store" || action == "evict";
+}
+
+void addConstants(target::murphi::Module &m, mlir::ModuleOp op) {
+  op.walk([&](mlir::murphi::ConstantOp constOp) {
+    int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
+    std::string id =
+        constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+
+    target::murphi::Constant *constDecl =
+        new target::murphi::Constant(id, value);
+    m.addConstant(constDecl);
+
+    return mlir::WalkResult::advance();
+  });
+}
+
 // Perform house keeping tasks here -- setup the file correctly
 void addBoilerplateConstants(target::murphi::Module &m) {
   // VAL_COUNT: 1;
@@ -25,6 +43,29 @@ void addBoilerplateConstants(target::murphi::Module &m) {
 void addAccessEnum(target::murphi::Module &m) {
   std::vector<std::string> enumList = {"load", "store", "none"};
   m.addEnum(new target::murphi::Enum("Access", enumList));
+}
+
+void addEnums(target::murphi::Module &m, mlir::ModuleOp op) {
+  op.walk([&](mlir::murphi::EnumOp enumOp) {
+    std::string definingId =
+        enumOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+
+    mlir::ArrayAttr valuesAttr =
+        enumOp.getAttr("values").cast<mlir::ArrayAttr>();
+    std::vector<std::string> allValues;
+
+    for (mlir::Attribute a : valuesAttr.getValue()) {
+      mlir::StringAttr s = a.cast<mlir::StringAttr>();
+      std::string enumValue = s.getValue().str();
+      allValues.push_back(enumValue);
+    }
+
+    // create enum in module
+    target::murphi::Enum *enumDecl =
+        new target::murphi::Enum(definingId, allValues);
+    m.addEnum(enumDecl);
+    return mlir::WalkResult::advance();
+  });
 }
 
 void addAddressesAndCl(target::murphi::Module &m) {
@@ -113,7 +154,7 @@ void addCacheDirectoryDefinitions(target::murphi::Module &m,
   m.addRecord(directory);
 }
 
-void setupMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
+void addMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
   target::murphi::Record *msgDef = new target::murphi::Record("Message");
   // All messages have default values
   // Address of the CL
@@ -200,7 +241,7 @@ void addVariableDeclarations(target::murphi::Module &m, mlir::ModuleOp op) {
   });
 }
 
-void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
+void addMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
   target::murphi::LanguageConstruct *messageDeclaration =
       m.findReference("Message");
   op.walk([&](mlir::murphi::MessageDefOp msgDef) {
@@ -220,7 +261,7 @@ void setupMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
   });
 }
 
-void createSendFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
+void addSendFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
   op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
     std::string netId =
         netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
@@ -239,7 +280,9 @@ void addCacheCPUEventFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
   op.walk([&](mlir::murphi::FunctionOp funcOp) {
     std::string action =
         funcOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    if (action == "load" || action == "store" || action == "evict") {
+    std::string machine =
+        funcOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+    if (isCpuEvent(action) && machine == "cache") {
       std::string curState =
           funcOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
       target::murphi::CacheCPUEventFunction *cacheFunc =
@@ -262,64 +305,52 @@ void addCacheRuleset(target::murphi::Module &m, mlir::ModuleOp op) {
     if (action == "load" || action == "store" || action == "evict") {
       std::string curState =
           funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-          target::murphi::CacheRule cr = target::murphi::CacheRule(curState, action);
-          c_ruleset.addRule(cr);
+      target::murphi::CacheRule cr =
+          target::murphi::CacheRule(curState, action);
+      c_ruleset.addRule(cr);
     }
   });
   m.setCacheRuleset(c_ruleset);
+}
+
+void addNetworkRulesets(target::murphi::Module &m, mlir::ModuleOp op) {
+  op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
+    std::string netId =
+        netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    std::string netOrder =
+        netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+    target::murphi::NetworkOrder order =
+        netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered
+                              : target::murphi::NetworkOrder::Unordered;
+
+    target::murphi::NetworkRuleset netRS(netId, order);
+    m.addNetworkRuleset(netRS);
+    return mlir::WalkResult::advance();
+  });
 }
 
 target::murphi::Module createModule(mlir::ModuleOp op,
                                     mlir::raw_ostream &output) {
   target::murphi::Module m;
 
-  op.walk([&](mlir::murphi::ConstantOp constOp) {
-    int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
-    std::string id =
-        constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-
-    target::murphi::Constant *constDecl =
-        new target::murphi::Constant(id, value);
-    m.addConstant(constDecl);
-
-    return mlir::WalkResult::advance();
-  });
+  addConstants(m, op);
   addBoilerplateConstants(m);
   addAccessEnum(m);
-
-  op.walk([&](mlir::murphi::EnumOp enumOp) {
-    std::string definingId =
-        enumOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-
-    mlir::ArrayAttr valuesAttr =
-        enumOp.getAttr("values").cast<mlir::ArrayAttr>();
-    std::vector<std::string> allValues;
-
-    for (mlir::Attribute a : valuesAttr.getValue()) {
-      mlir::StringAttr s = a.cast<mlir::StringAttr>();
-      std::string enumValue = s.getValue().str();
-      allValues.push_back(enumValue);
-    }
-
-    // create enum in module
-    target::murphi::Enum *enumDecl =
-        new target::murphi::Enum(definingId, allValues);
-    m.addEnum(enumDecl);
-    return mlir::WalkResult::advance();
-  });
+  addEnums(m, op);
 
   addAddressesAndCl(m);
   addCacheDirectoryObjectDefinitions(m);
   addCacheDirectoryDefinitions(m, op);
-  setupMessageTypes(m, op);
+  addMessageTypes(m, op);
   addBoilerplateTypes(m);
   addVariableDeclarations(m, op);
 
-  setupMessageFactories(m, op);
-  createSendFunctions(m, op);
+  addMessageFactories(m, op);
+  addSendFunctions(m, op);
 
   addCacheCPUEventFunctions(m, op);
   addCacheRuleset(m, op);
+  addNetworkRulesets(m, op);
   return m;
 }
 

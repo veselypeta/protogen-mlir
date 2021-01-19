@@ -214,6 +214,17 @@ private:
   std::vector<CacheRule> rules;
 };
 
+class NetworkRuleset {
+public:
+  NetworkRuleset(std::string netId, NetworkOrder ordering)
+      : netId{netId}, ordering{ordering} {}
+  void print(mlir::raw_ostream &stream);
+
+private:
+  std::string netId;
+  NetworkOrder ordering;
+};
+
 class Module {
 public:
   bool addConstant(target::murphi::Constant *constDecl);
@@ -228,10 +239,11 @@ public:
   bool addSendFunction(target::murphi::SendFunction *sendFunc);
   bool
   addCacheCPUEventFunction(target::murphi::CacheCPUEventFunction *cpuEventFunc);
-  bool setCacheRuleset(target::murphi::CacheRuleset cr){
+  bool setCacheRuleset(target::murphi::CacheRuleset cr) {
     this->cacheRuleset = cr;
     return true;
   }
+  bool addNetworkRuleset(target::murphi::NetworkRuleset rs);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
@@ -282,6 +294,8 @@ private:
 
   std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;
   CacheRuleset cacheRuleset;
+
+  std::vector<NetworkRuleset> netRulesets;
 };
 
 } // namespace murphi

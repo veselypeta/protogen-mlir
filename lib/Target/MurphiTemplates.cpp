@@ -157,6 +157,20 @@ endrule;\n\
 \n\
 ";
 
+std::string write_serialization_template = "\
+invariant \"Write Serialization\"\n\
+    forall c1:OBJSET_cache do\n\
+        forall c2:OBJSET_cache do\n\
+            forall a:Address do\n\
+                ( c1 != c2\n\
+                & i_cache[c1].CL[a].Perm = store )\n\
+                ->\n\
+                ( i_cache[c2].CL[a].Perm != store )\n\
+            endforall\n\
+        endforall\n\
+    endforall;\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -198,4 +212,9 @@ std::string cache_ruleset(std::string rules){
 
 std::string cache_rule(std::string curState, std::string cpuEvent){
   return fmt::format(cache_rule_template, curState, cpuEvent);
+}
+
+
+std::string write_serialization(){
+  return write_serialization_template;
 }

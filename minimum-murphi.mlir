@@ -20,7 +20,7 @@ module {
     "murphi.network_decl"() {ordering="Unordered", id="resp"} : () -> ()
     "murphi.network_decl"() {ordering="Unordered", id="req"} : () -> ()
 
-
+    // CACHE //
     "murphi.function"()({
         // msg = Request(GetM, ID, directory.ID);
         // %msg = "murphi.msg_constr"(){params=["GetM", "ID", "directory.ID"]} : () -> i64
@@ -67,6 +67,18 @@ module {
     }){machine="cache", cur_state="cache_M_evict", action="Put_Ack"} : () -> ()
 
 
+    // DIRECTORY //
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="directory", cur_state="directory_I", action="GetM"} : () -> ()
 
-   
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="directory", cur_state="directory_M", action="GetM"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="directory", cur_state="directory_M", action="PutM"} : () -> ()
+
+
 }
