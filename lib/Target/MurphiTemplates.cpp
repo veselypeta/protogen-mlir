@@ -134,6 +134,29 @@ endalias;\n\
 end;\n\
 ";
 
+std::string cache_ruleset_template = "\
+ruleset m:OBJSET_cache do\n\
+    ruleset adr:Address do\n\
+        alias cle:i_cache[m].CL[adr] do\n\
+\n\
+{0}\n\
+        endalias;\n\
+    endruleset;\n\
+endruleset;\n\
+";
+
+std::string cache_rule_template = "\
+\n\
+rule \"{0}_{1}\"\n\
+    cle.State = {0} \n\
+    & \n\
+    cl_mut[adr] = false\n\
+        ==>\n\
+    SEND_{0}_{1}(adr, m);\n\
+endrule;\n\
+\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -167,4 +190,12 @@ std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
                                   std::string funcBody) {
   return fmt::format(cache_load_store_proc_template, curState, cpuEvent,
                      funcBody);
+}
+
+std::string cache_ruleset(std::string rules){
+  return fmt::format(cache_ruleset_template, rules);
+}
+
+std::string cache_rule(std::string curState, std::string cpuEvent){
+  return fmt::format(cache_rule_template, curState, cpuEvent);
 }

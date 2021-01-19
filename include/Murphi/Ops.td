@@ -102,7 +102,13 @@ def NetworkDeclOp: Murphi_Op<"network_decl", []> {
         }];
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
+}
 
+def MsgConstrOp : Murphi_Op<"msg_constr", [NoSideEffect]>{
+        let summary = "message constructor";
+        let description = [{}];
+        let arguments = (ins ArrayAttr:$parameters);
+        let results = (outs AnyType:$output);
 }
 
 

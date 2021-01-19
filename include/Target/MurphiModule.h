@@ -194,6 +194,26 @@ private:
   // POSSIBLY A SET OF OPERATIONS.....
 };
 
+class CacheRule {
+public:
+  CacheRule(std::string curState, std::string cpuEvent)
+      : curState{curState}, cpuEvent{cpuEvent} {}
+  std::string to_string();
+
+private:
+  std::string curState;
+  std::string cpuEvent;
+};
+
+class CacheRuleset {
+public:
+  void addRule(CacheRule);
+  void print(mlir::raw_ostream &stream);
+
+private:
+  std::vector<CacheRule> rules;
+};
+
 class Module {
 public:
   bool addConstant(target::murphi::Constant *constDecl);
@@ -208,6 +228,10 @@ public:
   bool addSendFunction(target::murphi::SendFunction *sendFunc);
   bool
   addCacheCPUEventFunction(target::murphi::CacheCPUEventFunction *cpuEventFunc);
+  bool setCacheRuleset(target::murphi::CacheRuleset cr){
+    this->cacheRuleset = cr;
+    return true;
+  }
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
@@ -257,6 +281,7 @@ private:
   std::vector<SendFunction *> sendFunctions;
 
   std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;
+  CacheRuleset cacheRuleset;
 };
 
 } // namespace murphi

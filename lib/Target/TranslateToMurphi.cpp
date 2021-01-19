@@ -254,6 +254,21 @@ void addCacheCPUEventFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
   });
 }
 
+void addCacheRuleset(target::murphi::Module &m, mlir::ModuleOp op) {
+  target::murphi::CacheRuleset c_ruleset;
+  op.walk([&](mlir::murphi::FunctionOp funOp) {
+    std::string action =
+        funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    if (action == "load" || action == "store" || action == "evict") {
+      std::string curState =
+          funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+          target::murphi::CacheRule cr = target::murphi::CacheRule(curState, action);
+          c_ruleset.addRule(cr);
+    }
+  });
+  m.setCacheRuleset(c_ruleset);
+}
+
 target::murphi::Module createModule(mlir::ModuleOp op,
                                     mlir::raw_ostream &output) {
   target::murphi::Module m;
@@ -303,7 +318,8 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   setupMessageFactories(m, op);
   createSendFunctions(m, op);
 
-  addCacheCPUEventFunctions(m, op, output);
+  addCacheCPUEventFunctions(m, op);
+  addCacheRuleset(m, op);
   return m;
 }
 

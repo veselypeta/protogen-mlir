@@ -32,5 +32,41 @@ module {
     "murphi.function"()({
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I_load", action="GetM_Ack_D"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_I", action="store"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_I_store", action="GetM_Ack_D"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_I_store", action="GetM_Ack_D"} : () -> ()
+
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_M", action="load"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_M", action="store"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_M", action="Fwd_GetM"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_M", action="evict"} : () -> ()
+
+    "murphi.function"()({
+        "murphi.return" () :  () -> ()
+    }){machine="cache", cur_state="cache_M_evict", action="Put_Ack"} : () -> ()
+
+
+
    
 }

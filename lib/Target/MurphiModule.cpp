@@ -103,6 +103,7 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
     ef->print(stream);
   }
   // ----- Print cache ruleset ----- //
+  cacheRuleset.print(stream);
   // ----- Print network rulesets (EASY)----- //
   // ----- Print startstates ----- //
   // ----- Print Invariant (EASY)----- //
@@ -258,4 +259,22 @@ void target::murphi::SendFunction::print(mlir::raw_ostream &stream) {
 // ------- Cache CPU Event Functions ------- //
 void target::murphi::CacheCPUEventFunction::print(mlir::raw_ostream &stream) {
   stream << cache_load_store_proc(cacheState, cpuEvent, "\n\n\n");
+}
+
+// ------- Cache Rule ------- //
+std::string target::murphi::CacheRule::to_string() {
+  return cache_rule(curState, cpuEvent);
+}
+
+// ------- Cache RuleSet ------- //
+void target::murphi::CacheRuleset::print(mlir::raw_ostream &stream) {
+  std::string str_rules;
+  for (auto rule : rules) {
+    str_rules += rule.to_string();
+  }
+  stream << cache_ruleset(str_rules);
+}
+
+void target::murphi::CacheRuleset::addRule(target::murphi::CacheRule r) {
+  rules.push_back(r);
 }

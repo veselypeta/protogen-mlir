@@ -20,3 +20,6 @@ std::string message_constructor(std::string msgId, std::string msgParams,
 std::string variable_decl(std::string varId, std::string typeId);
 std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
                                   std::string funcBody);
+
+std::string cache_ruleset(std::string rules);
+std::string cache_rule(std::string curState, std::string cpuEvent);
