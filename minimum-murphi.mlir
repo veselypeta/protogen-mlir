@@ -22,11 +22,11 @@ module {
         // req.send(msg);
         // "murphi.send"(%msg) : (i64) -> ()
         "murphi.return" () :  () -> ()
-    }){machine="cache", cur_state="cache_I", action="load"} : () -> ()
+    }){machine="cache", cur_state="cache_I", action="load", end_state="cache_I_load"} : () -> ()
 
     "murphi.function"()({
         "murphi.return" () :  () -> ()
-    }){machine="cache", cur_state="cache_I_load", action="GetM_Ack_D"} : () -> ()
+    }){machine="cache", cur_state="cache_I_load"} : () -> ()
 
     "murphi.function"()({
         "murphi.return" () :  () -> ()
