@@ -36,6 +36,7 @@ public:
       : id{enumId}, enums{enumValues} {}
   virtual std::string getDefiningId() { return id; };
   virtual void print(mlir::raw_ostream &stream);
+  std::vector<std::string> getElements(){return enums;}
 
 private:
   std::string id;
@@ -179,6 +180,36 @@ private:
   NetworkOrder ordering;
 };
 
+class MessageHandler {
+public:
+  MessageHandler(std::string msgId): messageId{msgId} {}
+  std::string to_string();
+
+private:
+  std::string messageId;;
+};
+
+class StateHandler {
+public:
+  StateHandler(std::string stateId) : stateId{stateId} {};
+  void addMessageHandler(MessageHandler handerl);
+  std::string to_string();
+
+private:
+  std::vector<MessageHandler> msgHandlers;
+  std::string stateId;
+};
+
+class MachineHandlerFunction {
+public:
+  MachineHandlerFunction(std::string machName): machName{machName} {}
+  void print(mlir::raw_ostream &stream);
+  void addStateHandler(StateHandler handler);
+private:
+  std::vector<StateHandler> stateHandlers;
+  std::string machName;
+};
+
 class CacheCPUEventFunction : public LanguageConstruct {
 public:
   CacheCPUEventFunction(std::string cacheState, std::string cpuEvent)
@@ -239,6 +270,7 @@ public:
   bool addSendFunction(target::murphi::SendFunction *sendFunc);
   bool
   addCacheCPUEventFunction(target::murphi::CacheCPUEventFunction *cpuEventFunc);
+  bool addMachineHandleFunction(target::murphi::MachineHandlerFunction f);
   bool setCacheRuleset(target::murphi::CacheRuleset cr) {
     this->cacheRuleset = cr;
     return true;
@@ -293,6 +325,7 @@ private:
   std::vector<SendFunction *> sendFunctions;
 
   std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;
+  std::vector<MachineHandlerFunction> machHandleFuncs;
   CacheRuleset cacheRuleset;
 
   std::vector<NetworkRuleset> netRulesets;

@@ -21,6 +21,11 @@ std::string variable_decl(std::string varId, std::string typeId);
 std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
                                   std::string funcBody);
 
+std::string machine_handler(std::string machineId, std::string body);
+std::string switch_statement(std::string switchField, std::string cases);
+std::string switch_statement_else_false(std::string switchField, std::string cases);
+std::string case_statement(std::string caseId, std::string body);
+
 std::string cache_ruleset(std::string rules);
 std::string cache_rule(std::string curState, std::string cpuEvent);
 std::string write_serialization();

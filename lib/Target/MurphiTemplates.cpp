@@ -132,6 +132,40 @@ begin\n\
 {2} \n\
 endalias;\n\
 end;\n\
+\n\
+";
+
+std::string machine_handler_func_template = "\
+function Func_{0}(inmsg:Message; m:OBJSET_{0}) : boolean;\n\
+var msg: Message;\n\
+begin\n\
+  alias adr: inmsg.adr do\n\
+  alias {0}_entry: i_{0}[m].CL[adr] do\n\
+{1}\n\
+endalias;\n\
+endalias;\n\
+return true;\n\
+end;\n\
+\n\
+";
+
+std::string switch_statement_template = "\
+switch {0}:\n\
+{1}\n\
+endswitch;\n\
+";
+
+std::string switch_statement_else_false_template = "\
+switch {0}:\n\
+{1}\n\
+  else return false;\n\
+endswitch;\n\
+";
+
+std::string case_statement_template = "\
+case {0}: \n\
+{1}\n\
+\n\
 ";
 
 std::string cache_ruleset_template = "\
@@ -143,6 +177,7 @@ ruleset m:OBJSET_cache do\n\
         endalias;\n\
     endruleset;\n\
 endruleset;\n\
+\n\
 ";
 
 std::string cache_rule_template = "\
@@ -169,6 +204,7 @@ invariant \"Write Serialization\"\n\
             endforall\n\
         endforall\n\
     endforall;\n\
+\n\
 ";
 
 std::string unordered_send_proc(std::string netId) {
@@ -204,6 +240,22 @@ std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
                                   std::string funcBody) {
   return fmt::format(cache_load_store_proc_template, curState, cpuEvent,
                      funcBody);
+}
+
+std::string machine_handler(std::string machineId, std::string body){
+  return fmt::format(machine_handler_func_template, machineId, body);
+}
+
+std::string switch_statement(std::string switchField, std::string cases){
+  return fmt::format(switch_statement_template, switchField, cases);
+}
+
+std::string switch_statement_else_false(std::string switchField, std::string cases){
+  return fmt::format(switch_statement_else_false_template, switchField, cases);
+}
+
+std::string case_statement(std::string caseId, std::string body){
+  return fmt::format(case_statement_template, caseId, body);
 }
 
 std::string cache_ruleset(std::string rules){

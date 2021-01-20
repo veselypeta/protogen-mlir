@@ -7,6 +7,7 @@
 #include "mlir/Translation.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include <iostream>
+#include <set>
 
 bool isCpuEvent(std::string action) {
   return action == "load" || action == "store" || action == "evict";
@@ -26,7 +27,6 @@ void addConstants(target::murphi::Module &m, mlir::ModuleOp op) {
   });
 }
 
-// Perform house keeping tasks here -- setup the file correctly
 void addBoilerplateConstants(target::murphi::Module &m) {
   // VAL_COUNT: 1;
   m.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
@@ -45,27 +45,54 @@ void addAccessEnum(target::murphi::Module &m) {
   m.addEnum(new target::murphi::Enum("Access", enumList));
 }
 
-void addEnums(target::murphi::Module &m, mlir::ModuleOp op) {
-  op.walk([&](mlir::murphi::EnumOp enumOp) {
-    std::string definingId =
-        enumOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-
-    mlir::ArrayAttr valuesAttr =
-        enumOp.getAttr("values").cast<mlir::ArrayAttr>();
-    std::vector<std::string> allValues;
-
-    for (mlir::Attribute a : valuesAttr.getValue()) {
-      mlir::StringAttr s = a.cast<mlir::StringAttr>();
-      std::string enumValue = s.getValue().str();
-      allValues.push_back(enumValue);
+void addMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
+  std::set<std::string> msgTypes;
+  op.walk([&](mlir::murphi::FunctionOp funOp) {
+    std::string action =
+        funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    if (!isCpuEvent(action)) {
+      msgTypes.insert(action);
     }
-
-    // create enum in module
-    target::murphi::Enum *enumDecl =
-        new target::murphi::Enum(definingId, allValues);
-    m.addEnum(enumDecl);
     return mlir::WalkResult::advance();
   });
+  std::vector<std::string> msgTypesVec;
+  std::copy(msgTypes.begin(), msgTypes.end(), std::back_inserter(msgTypesVec));
+
+  target::murphi::Enum *msgTypesEnum =
+      new target::murphi::Enum("MessageType", msgTypesVec);
+  m.addEnum(msgTypesEnum);
+}
+
+void addCacheDirectoryStates(target::murphi::Module &m, mlir::ModuleOp op) {
+  std::set<std::string> cacheState;
+  std::set<std::string> dirState;
+  op.walk([&](mlir::murphi::FunctionOp funOp) {
+    std::string machine =
+        funOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+    std::string state =
+        funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+    if (machine == "cache") {
+      cacheState.insert(state);
+    }
+    if (machine == "directory") {
+      dirState.insert(state);
+    }
+    return mlir::WalkResult::advance();
+  });
+  // Convert Set to Vector
+  std::vector<std::string> cacheStateVec;
+  std::vector<std::string> dirStateVec;
+
+  std::copy(cacheState.begin(), cacheState.end(),
+            std::back_inserter(cacheStateVec));
+  std::copy(dirState.begin(), dirState.end(), std::back_inserter(dirStateVec));
+
+  target::murphi::Enum *cacheStateDecl =
+      new target::murphi::Enum("cache_state", cacheStateVec);
+  target::murphi::Enum *dirStateDecl =
+      new target::murphi::Enum("directory_state", dirStateVec);
+  m.addEnum(cacheStateDecl);
+  m.addEnum(dirStateDecl);
 }
 
 void addAddressesAndCl(target::murphi::Module &m) {
@@ -154,7 +181,7 @@ void addCacheDirectoryDefinitions(target::murphi::Module &m,
   m.addRecord(directory);
 }
 
-void addMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
+void addGloablMessageType(target::murphi::Module &m, mlir::ModuleOp op) {
   target::murphi::Record *msgDef = new target::murphi::Record("Message");
   // All messages have default values
   // Address of the CL
@@ -276,6 +303,62 @@ void addSendFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
   });
 }
 
+target::murphi::StateHandler
+getStateHandler(std::string stateId, std::string machineId, mlir::ModuleOp op) {
+  target::murphi::StateHandler sh(stateId);
+  op.walk([&](mlir::murphi::FunctionOp funOp) {
+    std::string machine =
+        funOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+    std::string action =
+        funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    std::string cur_state =
+        funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+    // Filter over all possible messages that can be received
+    if (!isCpuEvent(action) && machine == machineId && cur_state == stateId) {
+      // For each such message -- possibly zero -- create a message handler
+      target::murphi::MessageHandler msgHandler(action);
+      sh.addMessageHandler(msgHandler);
+    }
+  });
+  return sh;
+}
+
+target::murphi::MachineHandlerFunction getMachineHandleFunction(target::murphi::Module &m, mlir::ModuleOp op, std::string machId){
+    // Get the Cache State Enum
+  target::murphi::MachineHandlerFunction handFunc(machId);
+  target::murphi::Enum *states =
+      dynamic_cast<target::murphi::Enum *>(m.findReference(machId + "_state"));
+  for (auto state : states->getElements()) {
+    // Generate a State Handler for each state
+    target::murphi::StateHandler sh = getStateHandler(state, machId, op);
+    handFunc.addStateHandler(sh);
+  }
+  return handFunc;
+}
+
+void addCacheFunction(target::murphi::Module &m, mlir::ModuleOp op) {
+  target::murphi::MachineHandlerFunction funcCache = getMachineHandleFunction(m, op, "cache");
+  m.addMachineHandleFunction(funcCache);
+}
+
+void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op){
+  target::murphi::MachineHandlerFunction funcDir = getMachineHandleFunction(m, op, "directory");
+  m.addMachineHandleFunction(funcDir);
+}
+
+// void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {
+//   // Get the Cache State Enum
+//   target::murphi::MachineHandlerFunction funcDirectory("directory");
+//   target::murphi::Enum *dirStateEnum =
+//       dynamic_cast<target::murphi::Enum *>(m.findReference("directory_state"));
+//   for (auto cs : dirStateEnum->getElements()) {
+//     // Generate a State Handler for each state
+//     target::murphi::StateHandler sh = getStateHandler(cs, "directory", op);
+//     funcDirectory.addStateHandler(sh);
+//   }
+//   m.addMachineHandleFunction(funcDirectory);
+// }
+
 void addCacheCPUEventFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
   op.walk([&](mlir::murphi::FunctionOp funcOp) {
     std::string action =
@@ -336,17 +419,20 @@ target::murphi::Module createModule(mlir::ModuleOp op,
   addConstants(m, op);
   addBoilerplateConstants(m);
   addAccessEnum(m);
-  addEnums(m, op);
+  addMessageTypes(m, op);
+  addCacheDirectoryStates(m, op);
 
   addAddressesAndCl(m);
   addCacheDirectoryObjectDefinitions(m);
   addCacheDirectoryDefinitions(m, op);
-  addMessageTypes(m, op);
+  addGloablMessageType(m, op);
   addBoilerplateTypes(m);
   addVariableDeclarations(m, op);
 
   addMessageFactories(m, op);
   addSendFunctions(m, op);
+  addCacheFunction(m, op);
+  addDirectoryFunction(m, op);
 
   addCacheCPUEventFunctions(m, op);
   addCacheRuleset(m, op);

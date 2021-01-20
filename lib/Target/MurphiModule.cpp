@@ -63,6 +63,11 @@ bool target::murphi::Module::addSendFunction(
   return true;
 }
 
+bool target::murphi::Module::addMachineHandleFunction(target::murphi::MachineHandlerFunction f){
+  machHandleFuncs.push_back(f);
+  return true;
+}
+
 bool target::murphi::Module::addCacheCPUEventFunction(
     target::murphi::CacheCPUEventFunction *cacheFunc) {
   cacheCpuEventFunctions.push_back(cacheFunc);
@@ -104,7 +109,9 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   }
 
   // ----- Print cache and directory funcitons ----- //
-
+  for (auto mh : machHandleFuncs){
+    mh.print(stream);
+  }
 
   // ----- Print cache and directory load/store functions ----- //
   for (auto ef : cacheCpuEventFunctions) {
@@ -302,3 +309,45 @@ void target::murphi::NetworkRuleset::print(mlir::raw_ostream &stream) {
     break;
   }
 }
+
+
+
+// ----------------------------------- //
+// Cache/Directory Function Definition //
+// ----------------------------------- //
+
+// MachineHandlerFunction
+void target::murphi::MachineHandlerFunction::print(mlir::raw_ostream &stream){
+  std::string body;
+  for(auto item : stateHandlers){
+    body += item.to_string();
+  }
+  stream << machine_handler(machName, switch_statement(machName+"_entry.State", body));
+}
+
+void target::murphi::MachineHandlerFunction::addStateHandler(target::murphi::StateHandler sh){
+  stateHandlers.push_back(sh);
+}
+
+// StateHandler
+std::string target::murphi::StateHandler::to_string(){
+  // If no MsgHandlers then we return false;
+  if(msgHandlers.empty()){
+    return case_statement(stateId, "return false;");
+  }
+  std::string body;
+  for(auto mh : msgHandlers){
+    body += mh.to_string();
+  }
+  return case_statement(stateId, switch_statement_else_false("inmsg.id", body));
+}
+
+void target::murphi::StateHandler::addMessageHandler(target::murphi::MessageHandler mh){
+  msgHandlers.push_back(mh);
+}
+
+// MessageHandler
+std::string target::murphi::MessageHandler::to_string(){
+  return case_statement(messageId, "-- INSERT BODY OF FUNCTION HERE --");
+}
+

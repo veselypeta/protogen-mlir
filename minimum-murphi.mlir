@@ -2,12 +2,7 @@ module {
     // Need to know defined constants in MLIR
     %nrCaches = "murphi.constant"(){id="nrCaches", value=3} : () -> i64
 
-    // Need to know all the message ids
-    %MessageType = "murphi.enum"() {id="MessageType", values=["GetM", "Fwd_GetM", "GetM_Ack_D", "PutM", "Put_Ack"]} : () -> i64
-
-    %cache_state = "murphi.enum"() {id="cache_state", values=["cache_M", "cache_I_M_D", "cache_I", "cache_M_I_Ack"]} : () -> i64
-    %directory_state = "murphi.enum"() {id="directory_state", values=["directory_I", "directory_M"]} : () -> i64
-
+    // Specify size of Cache -- TODO
     "murphi.cache_definition" () {fields=["State", "cl"], types=["I", "Data"]} : () -> ()
     "murphi.directory_definition"() {fields=["State", "cl", "owner"], types=["I", "Data", "ID"]} : () -> ()
 
@@ -44,7 +39,6 @@ module {
     "murphi.function"()({
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I_store", action="GetM_Ack_D"} : () -> ()
-
 
     "murphi.function"()({
         "murphi.return" () :  () -> ()
