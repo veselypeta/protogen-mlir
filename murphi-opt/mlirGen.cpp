@@ -192,6 +192,7 @@ private:
     theModule.push_back(netOp);
     return mlir::success();
   }
+  
 
   // arch_block : ARCH ID OCBRACE arch_body CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
