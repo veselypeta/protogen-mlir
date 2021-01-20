@@ -277,7 +277,7 @@ void target::murphi::SendFunction::print(mlir::raw_ostream &stream) {
 
 // ------- Cache CPU Event Functions ------- //
 void target::murphi::CacheCPUEventFunction::print(mlir::raw_ostream &stream) {
-  stream << cache_load_store_proc(cacheState, cpuEvent, "\n\n\n");
+  stream << cache_load_store_proc(cacheState, cpuEvent, "\n-- INSERT BODY OF FUNCTION HERE --\n");
 }
 
 // ------- Cache Rule ------- //

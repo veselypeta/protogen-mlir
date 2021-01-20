@@ -26,7 +26,7 @@ module {
 
     "murphi.function"()({
         "murphi.return" () :  () -> ()
-    }){machine="cache", cur_state="cache_I_load", action="GetM_Ack_D"} : () -> ()
+    }){machine="cache", cur_state="cache_I_load"} : () -> ()
 
     "murphi.function"()({
         "murphi.return" () :  () -> ()
