@@ -188,7 +188,7 @@ arch_body: stable_def process_block*;
 stable_def : STABLE OCBRACE ID (COMMA ID)* CCBRACE;
 
 process_block : PROC process_trans OCBRACE process_expr* CCBRACE;
-    process_trans : OBRACE ID COMMA process_events process_finalstate* CBRACE;
+    process_trans : OBRACE ID COMMA process_events process_finalstate? CBRACE;
     process_finalstate: COMMA process_finalident;
     process_finalident: (ID | STATE);
     process_events : (ACCESS | EVICT | ID);

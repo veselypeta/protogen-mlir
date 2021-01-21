@@ -1,6 +1,8 @@
 #include "ProtoCCVisitor.h"
 #include "antlr4-runtime.h"
+#include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <utility>
 
 #include "mlir/IR/Attributes.h"
@@ -22,7 +24,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
-#include <numeric>
 
 namespace {
 class MLIRGenImpl {
@@ -44,9 +45,9 @@ public:
       mlirGen(initHWCtx);
     }
 
-    // for (auto archBlockCtx : ctx->arch_block()) {
-    //   mlirGen(archBlockCtx);
-    // }
+    for (auto archBlockCtx : ctx->arch_block()) {
+      mlirGen(archBlockCtx);
+    }
 
     if (mlir::failed(mlir::verify(theModule))) {
       theModule.emitError("Module Verification Error");
@@ -74,6 +75,8 @@ private:
       llvm::StringRef,
       std::pair<mlir::Value, ProtoCCParser::AssignmentContext *>>;
 
+  std::string cur_mach;
+
   // Helper function to declare a variable in the current scope - fails if
   // variable with same name was already declared
   mlir::LogicalResult declare(mlir::Value value,
@@ -92,6 +95,10 @@ private:
     return mlir::success();
   }
 
+  // -------------------------------- //
+  // ------ Init HW Preamble -------- //
+  // -------------------------------- //
+
   // const_decl : CONSTANT ID INT;
   mlir::LogicalResult mlirGen(ProtoCCParser::Const_declContext *ctx) {
     std::string id = ctx->ID()->getText();
@@ -100,8 +107,6 @@ private:
     mlir::Attribute valueAttr = builder.getI64IntegerAttr(value);
     mlir::murphi::ConstantOp constOp = builder.create<mlir::murphi::ConstantOp>(
         builder.getUnknownLoc(), idAttr, valueAttr);
-    // mlir::pcc::ConstantOp constOp = builder.create<mlir::pcc::ConstantOp>(
-    //     builder.getUnknownLoc(), idAttr, valueAttr);
     theModule.push_back(constOp);
     return mlir::success();
   }
@@ -140,26 +145,6 @@ private:
             builder.getUnknownLoc(), builder.getStringAttr(messageTypeId),
             builder.getArrayAttr(fields), builder.getArrayAttr(types));
     theModule.push_back(msgDefOp);
-    // std::vector<mlir::Type> elementTypes;
-    // if (messageTypeMap.count(messageTypeId)) {
-    //   // TODO - return mlir::emitError();
-    //   return mlir::failure();
-    // }
-
-    // push back default message constructor values
-    // mlir::Type messageId = mlir::pcc::IDType::get(builder.getContext());
-    // mlir::Type sourceId = mlir::pcc::IDType::get(builder.getContext());
-    // mlir::Type destId = mlir::pcc::IDType::get(builder.getContext());
-    // elementTypes.push_back(messageId);
-    // elementTypes.push_back(sourceId);
-    // elementTypes.push_back(destId);
-
-    // for (auto decl : ctx->declarations()) {
-    //   mlir::Type declType = getType(decl);
-    //   elementTypes.push_back(declType);
-    // }
-    // messageTypeMap.try_emplace(messageTypeId,
-    //                            mlir::pcc::MsgType::get(elementTypes), ctx);
 
     return mlir::success();
   }
@@ -259,41 +244,40 @@ private:
     std::string networkId = ctx->ID()->toString();
     std::string networkOrdering = ctx->getStart()->getText();
 
-    // mlir::pcc::NetworkDeclOp netOp =
-    // builder.create<mlir::pcc::NetworkDeclOp>(
-    //     builder.getUnknownLoc(), networkId, networkOrdering);
-
     mlir::murphi::NetworkDeclOp netOp =
         builder.create<mlir::murphi::NetworkDeclOp>(
             builder.getUnknownLoc(), builder.getStringAttr(networkId),
             builder.getStringAttr(networkOrdering));
-    // TODO -- potentially redundant
-    // globals.insert({networkId, netOp});
+
     theModule.push_back(netOp);
     return mlir::success();
   }
 
+  // -------------------------------- //
+  // ----------- Achitecutre -------- //
+  // -------------------------------- //
+
   // arch_block : ARCH ID OCBRACE arch_body CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
 
-    // get the id of the architecture
-    std::string id = ctx->ID()->getText();
+    // get the id of the architecture - cache or directory
+    // std::string id = ctx->ID()->getText();
 
-    auto funcType = builder.getFunctionType(
-        llvm::None,
-        llvm::None); // TODO - set the type of the function correctly
-    mlir::FuncOp function =
-        mlir::FuncOp::create(builder.getUnknownLoc(), id, funcType);
+    // auto funcType = builder.getFunctionType(
+    //     llvm::None,
+    //     llvm::None); // TODO - set the type of the function correctly
+    // mlir::FuncOp function =
+    //     mlir::FuncOp::create(builder.getUnknownLoc(), id, funcType);
 
-    auto entryBlock = function.addEntryBlock();
-    builder.setInsertionPointToStart(entryBlock);
+    // auto entryBlock = function.addEntryBlock();
+    // builder.setInsertionPointToStart(entryBlock);
 
-    mlirGen(ctx->arch_body());
+    return mlirGen(ctx->arch_body());
 
-    builder.setInsertionPointToEnd(entryBlock);
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
-    theModule.push_back(function);
-    return mlir::success();
+    // builder.setInsertionPointToEnd(entryBlock);
+    // builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    // theModule.push_back(function);
+    // return mlir::success();
   }
 
   // arch_body: stable_def process_block*;
@@ -316,30 +300,43 @@ private:
     if (parentArchCtx == nullptr) {
       return mlir::failure();
     }
-    std::string functionName =
-        parentArchCtx->ID()->getText() + "_" +
-        ctx->process_trans()->ID()->getText() + "_" +
-        ctx->process_trans()->process_events()->getText();
-    // Get the input arguments to the function;
-    mlir::TypeRange functionInputType =
-        getFunctionInputTypes(ctx->process_expr());
-    auto func_type = builder.getFunctionType(functionInputType, llvm::None);
-    auto function = builder.create<mlir::FuncOp>(builder.getUnknownLoc(),
-                                                 functionName, func_type);
-    auto entryBlock = function.addEntryBlock();
 
+    std::string machine = parentArchCtx->ID()->getText();
+    this->cur_mach = machine;
+    std::string cur_state =
+        machine + "_" + ctx->process_trans()->ID()->getText();
+    std::string action = ctx->process_trans()->process_events()->getText();
+    mlir::Attribute endStateAttr;
+    if (ProtoCCParser::Process_finalstateContext *finalState =
+            ctx->process_trans()->process_finalstate()) {
+      if (auto finalIdent = finalState->process_finalident()->ID()) {
+        endStateAttr =
+            builder.getStringAttr(cur_mach + "_" + finalIdent->getText());
+      }
+    }
+
+    mlir::pcc::FunctionOp funOp = builder.create<mlir::pcc::FunctionOp>(
+        builder.getUnknownLoc(), builder.getStringAttr(machine),
+        builder.getStringAttr(cur_state), builder.getStringAttr(action),
+        endStateAttr);
+
+    mlir::Block *entryBlock = new mlir::Block();
+    funOp.region().push_back(entryBlock);
     builder.setInsertionPointToStart(entryBlock);
 
-    for (auto processBodyCtx : ctx->process_expr()) {
-      if (mlir::failed(mlirGen(processBodyCtx))) {
+    // Loop and create Operations
+    for (auto procExprCtx : ctx->process_expr()) {
+      if (mlir::failed(mlirGen(procExprCtx))) {
         return mlir::failure();
       }
     }
 
-    builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
+    mlir::Value v;
+    builder.create<mlir::pcc::ReturnOp>(builder.getUnknownLoc(), v);
+    builder.setInsertionPointAfter(funOp);
 
-    // Restore the insertion point
-    builder.setInsertionPointAfter(function);
+    theModule.push_back(funOp);
+
     return mlir::success();
   }
 
@@ -369,9 +366,7 @@ private:
   // internal_event_block;
   mlir::LogicalResult mlirGen(ProtoCCParser::ExpressionsContext *ctx) {
     if (ctx->assignment() != nullptr) {
-      mlir::Value assignmentValue = mlirGen(ctx->assignment());
-      // DECLARE IS FLAWED
-      return declare(assignmentValue, ctx->assignment());
+      return mlirGen(ctx->assignment());
     }
     if (ctx->conditional() != nullptr) {
       // TODO - conditional
@@ -392,37 +387,57 @@ private:
   // assign_types : object_expr | message_constr | math_op | set_func | INT |
   // BOOL;
   // math_op : val_range (PLUS | MINUS) val_range;
-  mlir::Value mlirGen(ProtoCCParser::AssignmentContext *ctx) {
+  mlir::LogicalResult mlirGen(ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
 
-    // TODO Special cases {State, cl, owner ...} -- Hardcode for now!!
-    if (assignmentId == "State") {
-      // Get the rerpr. of the State i.e. M, I ...
-      std::string stateId = ctx->assign_types()->getText();
-      // Make the state Type
-      mlir::pcc::StateType stateType =
-          mlir::pcc::StateType::get(builder.getContext(), stateId);
-      mlir::TypeAttr stateAttr = mlir::TypeAttr::get(stateType);
-      mlir::StringAttr idAttribute = builder.getStringAttr(assignmentId);
-      // Declare State as a Constant to get SSA value
-      auto stateValue = builder.create<mlir::pcc::ConstantOp>(
-          builder.getUnknownLoc(), stateType, idAttribute, stateAttr);
-      // Declare the Set State operation
-      builder.create<mlir::pcc::SetOp>(builder.getUnknownLoc(), idAttribute,
-                                       stateValue);
+    std::vector<std::string> fieldsvec;
+    std::vector<std::string> typesvec;
+
+    // Get the fields and types attributes
+    if (cur_mach == "cache") {
+      theModule.walk([&](mlir::murphi::CacheDefOp cacheOp) {
+        auto fields = cacheOp.getAttr("fields").cast<mlir::ArrayAttr>();
+        auto types = cacheOp.getAttr("types").cast<mlir::ArrayAttr>();
+        for (int i = 0; i < (int)fields.size(); i++) {
+          std::string f = fields[i].cast<mlir::StringAttr>().getValue().str();
+          std::string t = types[i].cast<mlir::StringAttr>().getValue().str();
+          fieldsvec.push_back(f);
+          typesvec.push_back(t);
+        }
+      });
+    } else {
+      theModule.walk([&](mlir::murphi::DirectoryDefOp dirOp) {
+        auto fields = dirOp.getAttr("fields").cast<mlir::ArrayAttr>();
+        auto types = dirOp.getAttr("types").cast<mlir::ArrayAttr>();
+        for (int i = 0; i < (int)fields.size(); i++) {
+          std::string f = fields[i].cast<mlir::StringAttr>().getValue().str();
+          std::string t = types[i].cast<mlir::StringAttr>().getValue().str();
+          fieldsvec.push_back(f);
+          typesvec.push_back(t);
+        }
+      });
+    }
+
+    // If assignment Id not in machine fields declaration
+    if (std::find(fieldsvec.begin(), fieldsvec.end(), assignmentId) !=
+        fieldsvec.end()) {
+      // Here handle things like State = M; cl = msg.cl; etc...
+      return mlir::success();
     }
 
     // message_constr
     if (ctx->assign_types()->message_constr() != nullptr) {
-      return mlirGen(ctx->assign_types()->message_constr());
+      mlir::Value assignValue = mlirGen(ctx->assign_types()->message_constr());
+      return declare(assignValue, ctx);
     }
     // INT
     if (ctx->assign_types()->INT() != nullptr) {
       int intValue = std::atoi(ctx->assign_types()->INT()->getText().c_str());
       mlir::IntegerAttr intAttr = builder.getI64IntegerAttr(intValue);
       mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
-      return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
-                                                   idAttr, intAttr);
+      mlir::Value intVal = builder.create<mlir::pcc::ConstantOp>(
+          builder.getUnknownLoc(), idAttr, intAttr);
+      return declare(intVal, ctx);
     }
     // BOOL
     if (ctx->assign_types()->BOOL() != nullptr) {
@@ -430,8 +445,9 @@ private:
           ctx->assign_types()->BOOL()->getText() == "true" ? true : false;
       mlir::StringAttr idAttr = builder.getStringAttr(assignmentId);
       mlir::BoolAttr boolAttr = builder.getBoolAttr(value);
-      return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
-                                                   idAttr, boolAttr);
+      mlir::Value boolVal = builder.create<mlir::pcc::ConstantOp>(
+          builder.getUnknownLoc(), idAttr, boolAttr);
+      return declare(boolVal, ctx);
     }
     // object_expr
     if (ctx->assign_types()->object_expr() != nullptr) {
@@ -442,12 +458,16 @@ private:
       mlir::Value lhs = mlirGen(ctx->assign_types()->math_op()->val_range()[0]);
       mlir::Value rhs = mlirGen(ctx->assign_types()->math_op()->val_range()[1]);
       if (ctx->assign_types()->math_op()->PLUS() != nullptr) {
-        return builder.create<mlir::AddIOp>(builder.getUnknownLoc(), lhs, rhs);
+        mlir::Value v =
+            builder.create<mlir::AddIOp>(builder.getUnknownLoc(), lhs, rhs);
+        return declare(v, ctx);
       } else {
-        return builder.create<mlir::SubIOp>(builder.getUnknownLoc(), lhs, rhs);
+        mlir::Value v =
+            builder.create<mlir::SubIOp>(builder.getUnknownLoc(), lhs, rhs);
+        return declare(v, ctx);
       }
     }
-    return nullptr;
+    return mlir::success();
   }
 
   // val_range : INT | ID;
@@ -465,92 +485,16 @@ private:
   // message_constr : ID OBRACE message_expr* (COMMA message_expr)* CBRACE ;
   mlir::Value mlirGen(ProtoCCParser::Message_constrContext *ctx) {
     std::string constrId = ctx->ID()->getText();
-    // Lookup the type
-    auto constrType = messageTypeMap.lookup(constrId);
-    mlir::ArrayAttr dataAttr;
-    mlir::Type dataType;
-    std::tie(dataAttr, dataType) = getMessageAttr(ctx);
 
-    mlir::ValueRange valRange;
+    std::vector<mlir::Attribute> params;
+    for (auto paramCtx : ctx->message_expr()) {
+      // TODO - Hardcoded string parameters
+      params.push_back(builder.getStringAttr(paramCtx->getText()));
+    }
 
     return builder.create<mlir::pcc::MsgConstrOp>(builder.getUnknownLoc(),
-                                                  dataType, dataAttr);
-    return nullptr;
-  }
-
-  // message_constr : ID OBRACE message_expr* (COMMA message_expr)* CBRACE ;
-  std::pair<mlir::ArrayAttr, mlir::Type>
-  getMessageAttr(ProtoCCParser::Message_constrContext *ctx) {
-    std::vector<mlir::Attribute> attrElements;
-    std::vector<mlir::Type> typeElements;
-
-    std::vector<ProtoCCParser::Message_exprContext *> allMsgExpr =
-        ctx->message_expr();
-    // Default Object Paracters msg/src/dest
-    // TODO -- String Attr Return None
-    // Msg ID
-    mlir::Attribute msgAttribute =
-        builder.getStringAttr(allMsgExpr[0]->getText());
-    attrElements.push_back(msgAttribute);
-    typeElements.push_back(msgAttribute.getType());
-
-    // Src - TODO -> How to implement???
-    mlir::Attribute srcAttribute =
-        builder.getStringAttr(allMsgExpr[1]->getText());
-    attrElements.push_back(srcAttribute);
-    typeElements.push_back(srcAttribute.getType());
-
-    // Dest
-    mlir::Attribute dstAttribute =
-        builder.getStringAttr(allMsgExpr[2]->getText());
-    attrElements.push_back(dstAttribute);
-    typeElements.push_back(dstAttribute.getType());
-
-    // Add Optional Parameter
-    for (u_long i = 3; i < allMsgExpr.size(); i++) {
-      auto res = mlirGen(allMsgExpr[i]);
-      // attrElements.push_back(res.first);
-      // typeElements.push_back(res.second);
-    }
-
-    // auto msgNameAttr = builder.getStringAttr();
-
-    // Loop over the constructor and generate the elements
-
-    // attrElements.push_back(builder.getI64IntegerAttr(11));
-    // typeElements.push_back(builder.getI64Type());
-
-    mlir::ArrayAttr dataAttr = builder.getArrayAttr(attrElements);
-    mlir::Type dataType = mlir::pcc::MsgType::get(typeElements);
-
-    return std::make_pair(dataAttr, dataType);
-  }
-  // message_expr : object_expr | set_func | INT | BOOL | NID;
-  std::pair<mlir::Attribute, mlir::Type>
-  mlirGen(ProtoCCParser::Message_exprContext *ctx) {
-    if (ctx->object_expr() != nullptr) {
-      // std::cout << ctx->object_expr()->getText() << std::endl;
-    }
-    // set_func : ID DOT set_function_types OBRACE set_nest* CBRACE;
-    if (ctx->set_func() != nullptr) {
-      // TODO -- NOT USED IN MI PROTOCOL
-    }
-    if (ctx->INT() != nullptr) {
-      int value = atoi(ctx->INT()->getText().c_str());
-      mlir::Attribute intAttr = builder.getI64IntegerAttr(value);
-      mlir::Type intType = builder.getI64Type();
-      return {intAttr, intType};
-    }
-    if (ctx->BOOL() != nullptr) {
-      bool value = ctx->BOOL()->getText() == "true";
-      mlir::Attribute boolAttr = builder.getBoolAttr(value);
-      mlir::Type boolType = builder.getI1Type();
-      return {boolAttr, boolType};
-    }
-    if (ctx->NID() != nullptr) {
-      // Refereing to its own ID
-    }
-    return {nullptr, nullptr};
+                                                  builder.getI64Type(),
+                                                  builder.getArrayAttr(params));
   }
 
   // object_expr : object_id | object_func;
@@ -558,22 +502,9 @@ private:
   // object_func : ID DOT object_idres (OBRACE object_expr* (COMMA object_expr)*
   // CBRACE)*;
   // object_idres: ID | NID;
-  mlir::Value mlirGen(ProtoCCParser::Object_exprContext *ctx) {
+  mlir::LogicalResult mlirGen(ProtoCCParser::Object_exprContext *ctx) {
 
-    if (ctx->object_id() != nullptr) {
-      // std::string objId = ctx->object_id()->ID()->getText();
-      // TODO -- This is not used in the MI Protocol
-    }
-
-    if (ctx->object_func() != nullptr) {
-      std::string objId = ctx->object_func()->ID()->getText();
-      // TODO -- handle case when NID;
-      assert(ctx->object_func()->object_idres()->ID() != nullptr);
-      std::string objAddr = ctx->object_func()->object_idres()->ID()->getText();
-
-      // Lookup the message type (Request, Ack, Resp, RespAck)
-    }
-    return nullptr;
+    return mlir::success();
   }
 
   // transaction : AWAIT OCBRACE trans* CCBRACE;
@@ -605,8 +536,8 @@ private:
         builder.create<mlir::pcc::WhenOp>(builder.getUnknownLoc(), msgId);
     // Lookup the Message type and put it in as an argument to the block
     mlir::Block *entryBlock = new mlir::Block;
-    mlir::Type msgType = messageTypeMap.lookup("Resp").first; // TODO - fix
-    entryBlock->addArgument(msgType);
+    // mlir::Type msgType = messageTypeMap.lookup("Resp").first; // TODO - fix
+    // entryBlock->addArgument(msgType);
     whenOp.getRegion().push_back(entryBlock);
     builder.setInsertionPointToStart(entryBlock);
 
@@ -664,48 +595,46 @@ private:
     auto msgConstructor = symbolTable.lookup(msgId);
     assert(msgConstructor.first != nullptr);
 
-    mlir::Value netInput = builder.create<mlir::pcc::GlobalNetworkOp>(
-        builder.getUnknownLoc(), netId);
     mlir::Value msgInput = msgConstructor.first;
-    builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), netInput,
-                                      msgInput);
+    builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), msgInput,
+                                      builder.getStringAttr(netId));
     return mlir::success();
   }
 
-  std::vector<std::string>
-  getStableStates(ProtoCCParser::Stable_defContext *ctx) {
-    std::vector<std::string> stable_states;
-    for (auto state : ctx->ID()) {
-      stable_states.push_back(state->getText());
-    }
-    return stable_states;
-  }
+  // std::vector<std::string>
+  // getStableStates(ProtoCCParser::Stable_defContext *ctx) {
+  //   std::vector<std::string> stable_states;
+  //   for (auto state : ctx->ID()) {
+  //     stable_states.push_back(state->getText());
+  //   }
+  //   return stable_states;
+  // }
 
-  mlir::Location getLoc(antlr4::Token &tok) {
-    antlr4::TokenSource *source = tok.getTokenSource();
-    auto line = source->getLine();
-    auto col = source->getCharPositionInLine();
-    auto file = source->getSourceName();
-    return builder.getFileLineColLoc(builder.getIdentifier(file), line, col);
-  }
+  // mlir::Location getLoc(antlr4::Token &tok) {
+  //   antlr4::TokenSource *source = tok.getTokenSource();
+  //   auto line = source->getLine();
+  //   auto col = source->getCharPositionInLine();
+  //   auto file = source->getSourceName();
+  //   return builder.getFileLineColLoc(builder.getIdentifier(file), line, col);
+  // }
 
   // Get Type from Declarations Context
   // declarations : int_decl | bool_decl | state_decl | data_decl | id_decl;
-  mlir::Type getType(ProtoCCParser::DeclarationsContext *ctx) {
-    if (ctx->bool_decl() != nullptr) {
-      return builder.getI1Type();
-    }
-    if (ctx->int_decl() != nullptr) {
-      return builder.getI64Type();
-    }
-    if (ctx->data_decl() != nullptr) {
-      return mlir::pcc::DataType::get(builder.getContext());
-    }
-    if (ctx->id_decl() != nullptr) {
-      return mlir::pcc::IDType::get(builder.getContext());
-    }
-    return nullptr;
-  }
+  // mlir::Type getType(ProtoCCParser::DeclarationsContext *ctx) {
+  //   if (ctx->bool_decl() != nullptr) {
+  //     return builder.getI1Type();
+  //   }
+  //   if (ctx->int_decl() != nullptr) {
+  //     return builder.getI64Type();
+  //   }
+  //   if (ctx->data_decl() != nullptr) {
+  //     return mlir::pcc::DataType::get(builder.getContext());
+  //   }
+  //   if (ctx->id_decl() != nullptr) {
+  //     return mlir::pcc::IDType::get(builder.getContext());
+  //   }
+  //   return nullptr;
+  // }
 };
 
 } // namespace

@@ -837,8 +837,7 @@ public:
     antlr4::tree::TerminalNode *COMMA();
     Process_eventsContext *process_events();
     antlr4::tree::TerminalNode *CBRACE();
-    std::vector<Process_finalstateContext *> process_finalstate();
-    Process_finalstateContext* process_finalstate(size_t i);
+    Process_finalstateContext *process_finalstate();
 
    
   };

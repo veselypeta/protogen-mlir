@@ -48,6 +48,35 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
 
 }
 
+def ReturnOp : PCC_Op<"return", [NoSideEffect, Terminator]> {
+  let summary = "return operation";
+  let description = [{
+    The `return` operation represents a return operation within a function.
+    The operation takes variable number of operands and produces no results.
+    The operand number and types must match the signature of the function
+    that contains the operation.
+
+    Example:
+
+    ```mlir
+    "murphi.constant_decl"()({
+            "murphi.return"(): () -> ()
+    }): () -> ()
+    ```
+  }];
+  let arguments = (ins Optional<AnyType>:$ret);
+}
+
+
+def FunctionOp : PCC_Op<"function">{
+        let summary = "represent a murphi function";
+        let description = [{}];
+
+        let arguments = (ins AnyAttr:$machine, AnyAttr:$cur_state, AnyAttr:$action, OptionalAttr<AnyAttr>:$end_state);
+
+        let regions = (region SizedRegion<1>:$region);
+}
+
 
 
 
@@ -63,10 +92,12 @@ def SendOp: PCC_Op<"send", []>{
                 ```
         }];
 
-        let arguments = (ins 
-                PCC_NetType:$network,
-                PCC_MsgType:$msg
-        );
+        // let arguments = (ins 
+        //         PCC_NetType:$network,
+        //         PCC_MsgType:$msg
+        // );
+
+        let arguments = (ins AnyType:$msg, AnyAttr:$netId);
 }
 
 // Add ConstantLike
@@ -83,8 +114,11 @@ def MsgConstrOp : PCC_Op<"msg_constr", [NoSideEffect]>{
                 ```
         }];
 
-        let arguments = (ins ArrayAttr:$value);
-        let results = (outs PCC_MsgType:$output);
+        let arguments = (ins ArrayAttr:$params);
+        let results = (outs AnyType:$out);
+
+        // let arguments = (ins ArrayAttr:$value);
+        // let results = (outs PCC_MsgType:$output);
 }
 
 // Add ConstantLike
