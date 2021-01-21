@@ -12,6 +12,8 @@
 #include "mlir/IR/Verifier.h"
 #include "mlir/InitAllDialects.h"
 
+#include "Murphi/Dialect.h"
+#include "Murphi/Ops.h"
 #include "PCC/Dialect.h"
 #include "PCC/Ops.h"
 
@@ -42,9 +44,9 @@ public:
       mlirGen(initHWCtx);
     }
 
-    for (auto archBlockCtx : ctx->arch_block()) {
-      mlirGen(archBlockCtx);
-    }
+    // for (auto archBlockCtx : ctx->arch_block()) {
+    //   mlirGen(archBlockCtx);
+    // }
 
     if (mlir::failed(mlir::verify(theModule))) {
       theModule.emitError("Module Verification Error");
@@ -96,8 +98,10 @@ private:
     int value = std::atoi((ctx->INT())->toString().c_str());
     mlir::Attribute idAttr = builder.getStringAttr(id);
     mlir::Attribute valueAttr = builder.getI64IntegerAttr(value);
-    mlir::pcc::ConstantOp constOp = builder.create<mlir::pcc::ConstantOp>(
+    mlir::murphi::ConstantOp constOp = builder.create<mlir::murphi::ConstantOp>(
         builder.getUnknownLoc(), idAttr, valueAttr);
+    // mlir::pcc::ConstantOp constOp = builder.create<mlir::pcc::ConstantOp>(
+    //     builder.getUnknownLoc(), idAttr, valueAttr);
     theModule.push_back(constOp);
     return mlir::success();
   }
@@ -116,29 +120,70 @@ private:
     return mlir::success();
   }
 
+  // message_block : MSG ID OCBRACE declarations* CCBRACE SEMICOLON ;
+  // Returns (field, type)
   mlir::LogicalResult mlirGen(ProtoCCParser::Message_blockContext *ctx) {
     std::string messageTypeId = ctx->ID()->getText();
-    std::vector<mlir::Type> elementTypes;
-    if (messageTypeMap.count(messageTypeId)) {
-      // TODO - return mlir::emitError();
-      return mlir::failure();
+    std::vector<mlir::Attribute> fields;
+    std::vector<mlir::Attribute> types;
+
+    // declarations : int_decl | bool_decl | state_decl | data_decl | id_decl;
+    for (auto decl : ctx->declarations()) {
+      mlir::Attribute fieldAttr, typeAttr;
+      std::tie(fieldAttr, typeAttr) = getDeclAttribute(decl);
+      fields.push_back(fieldAttr);
+      types.push_back(typeAttr);
     }
+
+    mlir::murphi::MessageDefOp msgDefOp =
+        builder.create<mlir::murphi::MessageDefOp>(
+            builder.getUnknownLoc(), builder.getStringAttr(messageTypeId),
+            builder.getArrayAttr(fields), builder.getArrayAttr(types));
+    theModule.push_back(msgDefOp);
+    // std::vector<mlir::Type> elementTypes;
+    // if (messageTypeMap.count(messageTypeId)) {
+    //   // TODO - return mlir::emitError();
+    //   return mlir::failure();
+    // }
 
     // push back default message constructor values
-    mlir::Type messageId = mlir::pcc::IDType::get(builder.getContext());
-    mlir::Type sourceId = mlir::pcc::IDType::get(builder.getContext());
-    mlir::Type destId = mlir::pcc::IDType::get(builder.getContext());
-    elementTypes.push_back(messageId);
-    elementTypes.push_back(sourceId);
-    elementTypes.push_back(destId);
+    // mlir::Type messageId = mlir::pcc::IDType::get(builder.getContext());
+    // mlir::Type sourceId = mlir::pcc::IDType::get(builder.getContext());
+    // mlir::Type destId = mlir::pcc::IDType::get(builder.getContext());
+    // elementTypes.push_back(messageId);
+    // elementTypes.push_back(sourceId);
+    // elementTypes.push_back(destId);
 
-    for (auto decl : ctx->declarations()) {
-      mlir::Type declType = getType(decl);
-      elementTypes.push_back(declType);
-    }
-    messageTypeMap.try_emplace(messageTypeId,
-                               mlir::pcc::MsgType::get(elementTypes), ctx);
+    // for (auto decl : ctx->declarations()) {
+    //   mlir::Type declType = getType(decl);
+    //   elementTypes.push_back(declType);
+    // }
+    // messageTypeMap.try_emplace(messageTypeId,
+    //                            mlir::pcc::MsgType::get(elementTypes), ctx);
+
     return mlir::success();
+  }
+
+  // declarations : int_decl | bool_decl | state_decl | data_decl | id_decl;
+  std::pair<mlir::Attribute, mlir::Attribute>
+  getDeclAttribute(ProtoCCParser::DeclarationsContext *ctx) {
+    if (ctx->state_decl() != nullptr) {
+      std::string stateId = ctx->state_decl()->ID()->getText();
+      return std::make_pair(builder.getStringAttr("State"),
+                            builder.getStringAttr(stateId));
+    }
+    if (ctx->data_decl() != nullptr) {
+      std::string dataId = ctx->data_decl()->ID()->getText();
+      return std::make_pair(builder.getStringAttr(dataId),
+                            builder.getStringAttr("Data"));
+    }
+    if (ctx->id_decl() != nullptr) {
+      // TODO -- id_decl is more complicated!!!
+      std::string id = ctx->id_decl()->ID()[0]->getText();
+      return std::make_pair(builder.getStringAttr(id),
+                            builder.getStringAttr("ID"));
+    }
+    return std::make_pair(nullptr, nullptr);
   }
 
   // machines : cache_block | dir_block | mem_block;
@@ -158,17 +203,44 @@ private:
   // cache_block : CACHE OCBRACE declarations* CCBRACE objset_decl* ID
   // SEMICOLON;
   mlir::LogicalResult mlirGen(ProtoCCParser::Cache_blockContext *ctx) {
-    std::string cacheId = ctx->ID()->getText();
+
+    std::vector<mlir::Attribute> fields;
+    std::vector<mlir::Attribute> types;
+
     for (auto decl : ctx->declarations()) {
-      mlir::Type t = getType(decl);
+      mlir::Attribute f;
+      mlir::Attribute t;
+      std::tie(f, t) = getDeclAttribute(decl);
+      fields.push_back(f);
+      types.push_back(t);
     }
+
+    mlir::murphi::CacheDefOp cacheDef =
+        builder.create<mlir::murphi::CacheDefOp>(builder.getUnknownLoc(),
+                                                 builder.getArrayAttr(fields),
+                                                 builder.getArrayAttr(types));
+    theModule.push_back(cacheDef);
 
     return mlir::success();
   }
 
-
   // dir_block : DIR OCBRACE declarations* CCBRACE objset_decl* ID SEMICOLON;
   mlir::LogicalResult mlirGen(ProtoCCParser::Dir_blockContext *ctx) {
+    std::vector<mlir::Attribute> fields;
+    std::vector<mlir::Attribute> types;
+
+    for (auto decl : ctx->declarations()) {
+      mlir::Attribute f, t;
+      std::tie(f, t) = getDeclAttribute(decl);
+      fields.push_back(f);
+      types.push_back(t);
+    }
+
+    mlir::murphi::DirectoryDefOp dirDef =
+        builder.create<mlir::murphi::DirectoryDefOp>(
+            builder.getUnknownLoc(), builder.getArrayAttr(fields),
+            builder.getArrayAttr(types));
+    theModule.push_back(dirDef);
     return mlir::success();
   }
 
@@ -186,13 +258,20 @@ private:
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_elementContext *ctx) {
     std::string networkId = ctx->ID()->toString();
     std::string networkOrdering = ctx->getStart()->getText();
-    mlir::pcc::NetworkDeclOp netOp = builder.create<mlir::pcc::NetworkDeclOp>(
-        builder.getUnknownLoc(), networkId, networkOrdering);
-    globals.insert({networkId, netOp});
+
+    // mlir::pcc::NetworkDeclOp netOp =
+    // builder.create<mlir::pcc::NetworkDeclOp>(
+    //     builder.getUnknownLoc(), networkId, networkOrdering);
+
+    mlir::murphi::NetworkDeclOp netOp =
+        builder.create<mlir::murphi::NetworkDeclOp>(
+            builder.getUnknownLoc(), builder.getStringAttr(networkId),
+            builder.getStringAttr(networkOrdering));
+    // TODO -- potentially redundant
+    // globals.insert({networkId, netOp});
     theModule.push_back(netOp);
     return mlir::success();
   }
-  
 
   // arch_block : ARCH ID OCBRACE arch_body CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
@@ -427,9 +506,8 @@ private:
     attrElements.push_back(dstAttribute);
     typeElements.push_back(dstAttribute.getType());
 
-
     // Add Optional Parameter
-    for (u_long i=3; i < allMsgExpr.size(); i++) {
+    for (u_long i = 3; i < allMsgExpr.size(); i++) {
       auto res = mlirGen(allMsgExpr[i]);
       // attrElements.push_back(res.first);
       // typeElements.push_back(res.second);

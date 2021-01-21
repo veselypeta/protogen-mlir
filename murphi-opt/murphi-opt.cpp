@@ -67,10 +67,10 @@ int loadAndProcessMLIR(mlir::MLIRContext &context,
   mlir::applyPassManagerCLOptions(pm);
 
   // TODO -- passes not working correctly
-  pm.addPass(mlir::createLowerToMurphiPass());
-  if (mlir::failed(pm.run(*module))) {
-    return 4;
-  }
+  // pm.addPass(mlir::createLowerToMurphiPass());
+  // if (mlir::failed(pm.run(*module))) {
+  //   return 4;
+  // }
   return 0;
 }
 
