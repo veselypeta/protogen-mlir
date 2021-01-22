@@ -15,5 +15,5 @@ class ModuleAST;
 
 /// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
 /// or nullptr on failure.
-mlir::OwningModuleRef mlirGen(mlir::MLIRContext &mlirCtx, ProtoCCParser::DocumentContext *docCtx);
+mlir::ModuleOp mlirGen(mlir::MLIRContext &mlirCtx, ProtoCCParser::DocumentContext *docCtx);
 } // namespace toy

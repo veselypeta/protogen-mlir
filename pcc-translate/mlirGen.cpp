@@ -306,6 +306,7 @@ private:
     std::string cur_state =
         machine + "_" + ctx->process_trans()->ID()->getText();
     std::string action = ctx->process_trans()->process_events()->getText();
+    
     mlir::Attribute endStateAttr;
     if (ProtoCCParser::Process_finalstateContext *finalState =
             ctx->process_trans()->process_finalstate()) {
@@ -640,7 +641,7 @@ private:
 } // namespace
 
 namespace pcc {
-mlir::OwningModuleRef mlirGen(mlir::MLIRContext &mlirCtx,
+mlir::ModuleOp mlirGen(mlir::MLIRContext &mlirCtx,
                               ProtoCCParser::DocumentContext *docCtx) {
   return MLIRGenImpl(mlirCtx).mlirGen(docCtx);
 }

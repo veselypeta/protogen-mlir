@@ -323,8 +323,10 @@ getStateHandler(std::string stateId, std::string machineId, mlir::ModuleOp op) {
   return sh;
 }
 
-target::murphi::MachineHandlerFunction getMachineHandleFunction(target::murphi::Module &m, mlir::ModuleOp op, std::string machId){
-    // Get the Cache State Enum
+target::murphi::MachineHandlerFunction
+getMachineHandleFunction(target::murphi::Module &m, mlir::ModuleOp op,
+                         std::string machId) {
+  // Get the Cache State Enum
   target::murphi::MachineHandlerFunction handFunc(machId);
   target::murphi::Enum *states =
       dynamic_cast<target::murphi::Enum *>(m.findReference(machId + "_state"));
@@ -337,12 +339,14 @@ target::murphi::MachineHandlerFunction getMachineHandleFunction(target::murphi::
 }
 
 void addCacheFunction(target::murphi::Module &m, mlir::ModuleOp op) {
-  target::murphi::MachineHandlerFunction funcCache = getMachineHandleFunction(m, op, "cache");
+  target::murphi::MachineHandlerFunction funcCache =
+      getMachineHandleFunction(m, op, "cache");
   m.addMachineHandleFunction(funcCache);
 }
 
-void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op){
-  target::murphi::MachineHandlerFunction funcDir = getMachineHandleFunction(m, op, "directory");
+void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {
+  target::murphi::MachineHandlerFunction funcDir =
+      getMachineHandleFunction(m, op, "directory");
   m.addMachineHandleFunction(funcDir);
 }
 
@@ -350,7 +354,8 @@ void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op){
 //   // Get the Cache State Enum
 //   target::murphi::MachineHandlerFunction funcDirectory("directory");
 //   target::murphi::Enum *dirStateEnum =
-//       dynamic_cast<target::murphi::Enum *>(m.findReference("directory_state"));
+//       dynamic_cast<target::murphi::Enum
+//       *>(m.findReference("directory_state"));
 //   for (auto cs : dirStateEnum->getElements()) {
 //     // Generate a State Handler for each state
 //     target::murphi::StateHandler sh = getStateHandler(cs, "directory", op);

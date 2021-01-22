@@ -58,47 +58,46 @@ struct ConstantOpLowering : public OpRewritePattern<mlir::pcc::ConstantOp> {
 };
 
 struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
-
-  AwaitOpLowering(mlir::MLIRContext *ctx)
-      : OpRewritePattern<mlir::pcc::AwaitOp>(ctx, /*benefit*/ 1) {}
+  AwaitOpLowering(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::pcc::AwaitOp>(context, /*benefit*/ 1) {}
 
   using OpRewritePattern<mlir::pcc::AwaitOp>::OpRewritePattern;
 
   mlir::LogicalResult matchAndRewrite(mlir::pcc::AwaitOp op,
                                       PatternRewriter &rewriter) const final {
+    // Look at the state of the parent op
+    mlir::pcc::FunctionOp f = dyn_cast<mlir::pcc::FunctionOp>(op.getParentOp());
+    std::string f_cur_state =
+        f.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+    std::string f_action =
+        f.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    std::string f_machine =
+        f.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
 
-    // STEPS
-    // Find an await block
-    // Get the parent function
-    // Get the When block and find what message it is waiting on
-    // Transition to a new Transient State
-    // Create a new function with the contents of the await as transient state
+    
+    mlir::ModuleOp module = dyn_cast<mlir::ModuleOp>(f.getParentOp());
 
-    // Get the parent function
-    mlir::FuncOp parentFunc = op.getParentOfType<mlir::FuncOp>();
-    std::string parentFunctionName = parentFunc.getName().str();
-
-    mlir::FuncOp archFunc = parentFunc.getParentOfType<mlir::FuncOp>();
+    mlir::Attribute endStateAttr;
 
     op.walk([&](mlir::pcc::WhenOp whenOp) {
-      mlir::StringAttr msgId = whenOp.getAttr("msgId").cast<mlir::StringAttr>();
-      std::string idText = msgId.getValue().str();
+      std::string msgId =
+          whenOp.getAttr("msgId").cast<mlir::StringAttr>().getValue().str();
+      mlir::pcc::FunctionOp funOp = rewriter.create<mlir::pcc::FunctionOp>(
+          rewriter.getUnknownLoc(), rewriter.getStringAttr(f_machine),
+          rewriter.getStringAttr(f_cur_state + "_" + f_action), rewriter.getStringAttr(msgId),
+          endStateAttr);
 
-      // rewriter.setInsertionPointAfter(parentFunc);
-      auto funcType = rewriter.getFunctionType(
-          llvm::None,
-          llvm::None); // TODO - set the type of the function correctly
-    //   mlir::FuncOp function = rewriter.create<mlir::FuncOp>(
-    //       rewriter.getUnknownLoc(), parentFunctionName + "_" + idText, funcType);
 
-        //   auto fEntryBlock = function.addEntryBlock();
-        //   rewriter.setInsertionPointToStart(fEntryBlock);
-        //   rewriter.create<mlir::ReturnOp>(rewriter.getUnknownLoc());
+      mlir::Block *entryBlock = new mlir::Block();
+      funOp.region().push_back(entryBlock);
+
+      rewriter.setInsertionPointToStart(entryBlock);
+
+      funOp.region().walk([&](mlir::Operation *op) { rewriter.insert(op); });
 
     });
 
     rewriter.eraseOp(op);
-
     return success();
   }
 };
@@ -125,7 +124,7 @@ void MyPass::runOnOperation() {
   OwningRewritePatternList patterns;
 
   patterns.insert<ConstantOpLowering>(&getContext());
-  // patterns.insert<AwaitOpLowering>(&getContext());
+  patterns.insert<AwaitOpLowering>(&getContext());
 
   if (failed(applyPartialConversion(getOperation(), target,
                                     std::move(patterns)))) {
