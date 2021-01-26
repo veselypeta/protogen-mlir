@@ -1,7 +1,7 @@
 #ifndef PCC_OPS
 #define PCC_OPS
 // Add ConstantLike
-def ConstantOp : PCC_Op<"constant", [NoSideEffect]> {
+def ConstantOp : PCC_Op<"constant", []> {
     let summary = "constant";
     let description = [{
             Constant operation produces an SSA value of some constant value
@@ -19,7 +19,11 @@ def ConstantOp : PCC_Op<"constant", [NoSideEffect]> {
     let builders = [
             OpBuilderDAG<(ins "Attribute":$id, "Attribute":$value), [{
                     build($_builder,$_state, value.getType(), id, value);
+            }]>,
+            OpBuilderDAG<(ins "std::string":$id, "int":$integerValue), [{
+                    build($_builder,$_state, $_builder.getStringAttr(id), $_builder.getI64IntegerAttr(integerValue));
             }]>
+
     ];
 }
 

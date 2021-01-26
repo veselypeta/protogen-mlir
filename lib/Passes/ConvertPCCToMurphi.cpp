@@ -15,6 +15,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/Sequence.h"
 
 #include <iostream>
@@ -72,54 +73,73 @@ struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
 
     mlir::ModuleOp moduleOp = awaitOp.getParentOfType<mlir::ModuleOp>();
 
-
     // Get the Attributes from the parent op;
     std::string machineAttr =
         parentFunc.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
     std::string actionAttr =
         parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    std::string cur_stateAttr =
-        parentFunc.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+    std::string cur_stateAttr = parentFunc.getAttr("cur_state")
+                                    .cast<mlir::StringAttr>()
+                                    .getValue()
+                                    .str();
 
-    // Walk any When Operations
-    awaitOp.walk([&](mlir::pcc::WhenOp whenOp) {
+    // Walk any When Operations -- at the first level of nesting
+    awaitOp.walk([&](mlir::Operation *op) {
+      // skip over any operations that arent WhenOp
+      if (dyn_cast<mlir::pcc::WhenOp>(op) == nullptr) {
+        return mlir::WalkResult::advance();
+      }
+
+      // Cast To a WhenOp
+      mlir::pcc::WhenOp whenOp = dyn_cast<mlir::pcc::WhenOp>(op);
+
+      // if the whenOp has parent AwaitOp -- which then has parent WhenOp
+      // The we skip this one
+      if (dyn_cast<mlir::pcc::WhenOp>(whenOp.getParentOp()->getParentOp()) !=
+          nullptr) {
+        return mlir::WalkResult::advance();
+      }
+
       std::string msgId =
           whenOp.getAttr("msgId").cast<mlir::StringAttr>().getValue().str();
-      
+
       std::string newState = cur_stateAttr + "_" + actionAttr;
 
       // Set insertion Point to Module
-      rewriter.setInsertionPointToStart(&moduleOp.getBodyRegion().getBlocks().front());
+      rewriter.setInsertionPointToStart(
+          &moduleOp.getBodyRegion().getBlocks().front());
 
-      // Create the new function 
-      mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(rewriter.getUnknownLoc(), machineAttr, newState, msgId);
+      // Create the new function
+      mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(
+          rewriter.getUnknownLoc(), machineAttr, newState, msgId);
 
       // Create the entry block for the function -- and add to function
       mlir::Block *entryBlock = new mlir::Block();
       newFunc.region().push_back(entryBlock);
-      
+
       // Set insertion point to inside of the function
       rewriter.setInsertionPointToStart(entryBlock);
 
+      // TODO -- Copy nested operations here; -- Don't know how to do this!!
+      mlir::pcc::WhenOp whenClone = whenOp.clone();
 
-      // TODO -- Copy nested operations here;
+      rewriter.insert(whenClone);
 
       // Add the return Op at the end;
       mlir::Value v;
       rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
-
     });
 
     // Erase The Await Op
     rewriter.eraseOp(awaitOp);
     return success();
+    // rewriter.notifyOperationInserted(clonedfn);
   }
 };
 
 struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
   WhenOpLowering(mlir::MLIRContext *context)
-      : OpRewritePattern<mlir::pcc::WhenOp>(context, /*benefit*/ 1),
-        ctx{context} {}
+      : OpRewritePattern<mlir::pcc::WhenOp>(context, /*benefit*/ 1) {}
 
   using OpRewritePattern<mlir::pcc::WhenOp>::OpRewritePattern;
 
@@ -130,8 +150,13 @@ struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
         whenOp.getParentOfType<mlir::pcc::FunctionOp>();
 
     mlir::ModuleOp moduleOp = whenOp.getParentOfType<mlir::ModuleOp>();
-    rewriter.setInsertionPointToStart(
-        &moduleOp.getBodyRegion().getBlocks().front());
+    // rewriter.setInsertionPointToStart(
+    //     &moduleOp.getBodyRegion().getBlocks().front());
+
+    // If the parent->parent of the when op is 'When' then this is a nested when and we skip
+    if(dyn_cast<mlir::pcc::WhenOp>(whenOp.getParentOp()->getParentOp()) != nullptr){
+      return mlir::failure();
+    }
 
     // Parent Function Attributes
     std::string machineAttr =
@@ -151,26 +176,37 @@ struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
     std::string newCurStateId = curStateAttr + "_" + actionAttr;
 
     // Generate a new function with these new attributes
-    mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(
-        rewriter.getUnknownLoc(), machineAttr, newCurStateId, msgId);
-    mlir::Block *block = new mlir::Block();
-    newFunc.region().push_back(block);
+    // mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(
+    //     rewriter.getUnknownLoc(), machineAttr, newCurStateId, msgId);
+    // mlir::Block *block = new mlir::Block();
+    // newFunc.region().push_back(block);
 
-    rewriter.setInsertionPointToStart(block);
+    // rewriter.setInsertionPointToStart(block);
 
     // TODO -- Copy operations inside of when op to new function;
+    // ---- HELP !!! ---
 
-    mlir::Value v;
-    rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
+    // mlir::Value v;
+    // rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
 
     // Erase the when Op
     rewriter.eraseOp(whenOp);
 
     return mlir::success();
   }
+};
 
-private:
-  mlir::MLIRContext *ctx;
+struct FunctionOpLowering : public OpRewritePattern<mlir::pcc::FunctionOp> {
+  FunctionOpLowering(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::pcc::FunctionOp>(context, /*benefit*/ 1) {}
+
+  using OpRewritePattern<mlir::pcc::FunctionOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::FunctionOp funOp,
+                                      PatternRewriter &rewriter) const final {
+
+    return mlir::success();
+  }
 };
 
 namespace {
@@ -186,10 +222,11 @@ struct MyPass : public PCCToMurphiPassBase<MyPass> {
 void MyPass::runOnOperation() {
   OwningRewritePatternList patterns;
 
-  patterns.insert<ConstantOpLowering>(&getContext());
+  // patterns.insert<ConstantOpLowering>(&getContext());
   // Potentially unnecessary since covered by Await Op Lowering
-  // patterns.insert<WhenOpLowering>(&getContext());
-  patterns.insert<AwaitOpLowering>(&getContext());
+  patterns.insert<WhenOpLowering>(&getContext());
+  // patterns.insert<AwaitOpLowering>(&getContext());
+  // patterns.insert<FunctionOpLowering>(&getContext());
 
   if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                       std::move(patterns)))) {
