@@ -75,6 +75,22 @@ def FunctionOp : PCC_Op<"function">{
         let arguments = (ins AnyAttr:$machine, AnyAttr:$cur_state, AnyAttr:$action, OptionalAttr<AnyAttr>:$end_state);
 
         let regions = (region SizedRegion<1>:$region);
+
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$machine, "std::string":$cur_state, "std::string":$action), [{
+                        $_state.addAttribute("machine", $_builder.getStringAttr(machine));
+                        $_state.addAttribute("cur_state", $_builder.getStringAttr(cur_state));
+                        $_state.addAttribute("action", $_builder.getStringAttr(action));
+                        $_state.addRegion();
+                }]>,
+                OpBuilderDAG<(ins "std::string":$machine, "std::string":$cur_state, "std::string":$action, "std::string":$end_state), [{
+                        $_state.addAttribute("machine", $_builder.getStringAttr(machine));
+                        $_state.addAttribute("cur_state", $_builder.getStringAttr(cur_state));
+                        $_state.addAttribute("action", $_builder.getStringAttr(action));
+                        $_state.addAttribute("end_state", $_builder.getStringAttr(end_state));
+                        $_state.addRegion();
+                }]>
+        ];
 }
 
 

@@ -14,6 +14,7 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/Sequence.h"
 
 #include <iostream>
@@ -63,43 +64,113 @@ struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
 
   using OpRewritePattern<mlir::pcc::AwaitOp>::OpRewritePattern;
 
-  mlir::LogicalResult matchAndRewrite(mlir::pcc::AwaitOp op,
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::AwaitOp awaitOp,
                                       PatternRewriter &rewriter) const final {
-    // Look at the state of the parent op
-    mlir::pcc::FunctionOp f = dyn_cast<mlir::pcc::FunctionOp>(op.getParentOp());
-    std::string f_cur_state =
-        f.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-    std::string f_action =
-        f.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    std::string f_machine =
-        f.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
 
-    
-    mlir::ModuleOp module = dyn_cast<mlir::ModuleOp>(f.getParentOp());
+    mlir::pcc::FunctionOp parentFunc =
+        awaitOp.getParentOfType<mlir::pcc::FunctionOp>();
 
-    mlir::Attribute endStateAttr;
+    mlir::ModuleOp moduleOp = awaitOp.getParentOfType<mlir::ModuleOp>();
 
-    op.walk([&](mlir::pcc::WhenOp whenOp) {
+
+    // Get the Attributes from the parent op;
+    std::string machineAttr =
+        parentFunc.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+    std::string actionAttr =
+        parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    std::string cur_stateAttr =
+        parentFunc.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+
+    // Walk any When Operations
+    awaitOp.walk([&](mlir::pcc::WhenOp whenOp) {
       std::string msgId =
           whenOp.getAttr("msgId").cast<mlir::StringAttr>().getValue().str();
-      mlir::pcc::FunctionOp funOp = rewriter.create<mlir::pcc::FunctionOp>(
-          rewriter.getUnknownLoc(), rewriter.getStringAttr(f_machine),
-          rewriter.getStringAttr(f_cur_state + "_" + f_action), rewriter.getStringAttr(msgId),
-          endStateAttr);
+      
+      std::string newState = cur_stateAttr + "_" + actionAttr;
 
+      // Set insertion Point to Module
+      rewriter.setInsertionPointToStart(&moduleOp.getBodyRegion().getBlocks().front());
 
+      // Create the new function 
+      mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(rewriter.getUnknownLoc(), machineAttr, newState, msgId);
+
+      // Create the entry block for the function -- and add to function
       mlir::Block *entryBlock = new mlir::Block();
-      funOp.region().push_back(entryBlock);
-
+      newFunc.region().push_back(entryBlock);
+      
+      // Set insertion point to inside of the function
       rewriter.setInsertionPointToStart(entryBlock);
 
-      funOp.region().walk([&](mlir::Operation *op) { rewriter.insert(op); });
+
+      // TODO -- Copy nested operations here;
+
+      // Add the return Op at the end;
+      mlir::Value v;
+      rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
 
     });
 
-    rewriter.eraseOp(op);
+    // Erase The Await Op
+    rewriter.eraseOp(awaitOp);
     return success();
   }
+};
+
+struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
+  WhenOpLowering(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::pcc::WhenOp>(context, /*benefit*/ 1),
+        ctx{context} {}
+
+  using OpRewritePattern<mlir::pcc::WhenOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::WhenOp whenOp,
+                                      PatternRewriter &rewriter) const final {
+
+    mlir::pcc::FunctionOp parentFunc =
+        whenOp.getParentOfType<mlir::pcc::FunctionOp>();
+
+    mlir::ModuleOp moduleOp = whenOp.getParentOfType<mlir::ModuleOp>();
+    rewriter.setInsertionPointToStart(
+        &moduleOp.getBodyRegion().getBlocks().front());
+
+    // Parent Function Attributes
+    std::string machineAttr =
+        parentFunc.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+    std::string actionAttr =
+        parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    std::string curStateAttr = parentFunc.getAttr("cur_state")
+                                   .cast<mlir::StringAttr>()
+                                   .getValue()
+                                   .str();
+
+    // When Op MsgId
+    std::string msgId =
+        whenOp.getAttr("msgId").cast<mlir::StringAttr>().getValue().str();
+
+    // Calculate new Transient State
+    std::string newCurStateId = curStateAttr + "_" + actionAttr;
+
+    // Generate a new function with these new attributes
+    mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(
+        rewriter.getUnknownLoc(), machineAttr, newCurStateId, msgId);
+    mlir::Block *block = new mlir::Block();
+    newFunc.region().push_back(block);
+
+    rewriter.setInsertionPointToStart(block);
+
+    // TODO -- Copy operations inside of when op to new function;
+
+    mlir::Value v;
+    rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
+
+    // Erase the when Op
+    rewriter.eraseOp(whenOp);
+
+    return mlir::success();
+  }
+
+private:
+  mlir::MLIRContext *ctx;
 };
 
 namespace {
@@ -113,22 +184,16 @@ struct MyPass : public PCCToMurphiPassBase<MyPass> {
 } // namespace
 
 void MyPass::runOnOperation() {
-
-  mlir::ConversionTarget target(getContext());
-
-  // We cant to convert PCC to Murphi
-  target.addLegalDialect<murphi::MurphiDialect>();
-  // target.addIllegalDialect<pcc::PCCDialect>();
-  // target.addIllegalOp<pcc::ConstantOp>();
-
   OwningRewritePatternList patterns;
 
   patterns.insert<ConstantOpLowering>(&getContext());
+  // Potentially unnecessary since covered by Await Op Lowering
+  // patterns.insert<WhenOpLowering>(&getContext());
   patterns.insert<AwaitOpLowering>(&getContext());
 
-  if (failed(applyPartialConversion(getOperation(), target,
-                                    std::move(patterns)))) {
-    signalPassFailure();
+  if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
+                                                      std::move(patterns)))) {
+    return signalPassFailure();
   }
 }
 
