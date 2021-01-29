@@ -124,8 +124,8 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
     nrs.print(stream);
   }
   // ----- Print startstates ----- //
-  // ----- Print Invariant (EASY)----- //
-  stream << write_serialization();
+  // ----- Print Invariant (EASY) (SKIP FOR NOW)----- //
+  // stream << write_serialization();
 }
 target::murphi::LanguageConstruct *
 target::murphi::Module::findReference(std::string id) {

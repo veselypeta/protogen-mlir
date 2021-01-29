@@ -256,6 +256,16 @@ private:
   NetworkOrder ordering;
 };
 
+class StartState {
+  public:
+    void print(mlir::raw_ostream &stream);
+    void addText(std::string text);
+  
+  private:
+  std::string startStateText;
+
+};
+
 class Module {
 public:
   bool addConstant(target::murphi::Constant *constDecl);

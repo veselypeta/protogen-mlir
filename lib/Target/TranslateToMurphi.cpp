@@ -350,6 +350,39 @@ void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {
   m.addMachineHandleFunction(funcDir);
 }
 
+void addStartStateDefinition(target::murphi::Module &m, mlir::ModuleOp op){
+  // Create a StartState Object
+
+  // Add Cache and Directory Startstate Definitions
+  op.walk([&](mlir::murphi::CacheDefOp cacheDefOp){
+    // get the Fiels and Types arrays
+    mlir::ArrayAttr fields = cacheDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
+    mlir::ArrayAttr types = cacheDefOp.getAttr("types").cast<mlir::ArrayAttr>();
+    for(int i = 0; i < (int)fields.size(); i++){
+      std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
+      std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
+
+      if(field == "State"){
+        // TODO - set the state
+      } else if(type == "Data"){
+         
+      }
+
+
+    }
+    return mlir::WalkResult::advance();
+  });
+
+  op.walk([&](mlir::murphi::DirectoryDefOp dirDefOp){
+    return mlir::WalkResult::advance();
+  });
+
+  // Add the network definitions
+  op.walk([&](mlir::murphi::NetworkDeclOp netDeclOp){
+    return mlir::WalkResult::advance();
+  });
+};
+
 // void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {
 //   // Get the Cache State Enum
 //   target::murphi::MachineHandlerFunction funcDirectory("directory");
@@ -441,6 +474,7 @@ target::murphi::Module createModule(mlir::ModuleOp op,
 
   addCacheCPUEventFunctions(m, op);
   addCacheRuleset(m, op);
+  addStartStateDefinition(m, op);
   addNetworkRulesets(m, op);
   return m;
 }

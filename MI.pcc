@@ -43,12 +43,12 @@ Architecture cache {
                 State = M;
                 break;
 
-            when TEST:
-                await{
-                    when NESTE_AWAIT:
-                        break;
-                }
-                break;
+            //when TEST:
+            //    await{
+            //        when NESTED_AWAIT:
+            //            break;
+            //    }
+            //    break;
         }
     }
 

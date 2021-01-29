@@ -207,6 +207,38 @@ invariant \"Write Serialization\"\n\
 \n\
 ";
 
+std::string start_state_template = "\
+\n\
+-- Setup Start States\n\
+startstate\n\
+\n\
+{}\n\
+\n\
+endstartstate;\n\
+";
+
+std::string mach_start_state_def_template = "\
+    -- setup the {0}\n\
+    for i:OBJSET_{0} do\n\
+        for a:Address do\n\
+\n\        
+        {1}\n\
+\n\
+        endfor;\n\
+    endfor;\n\
+";
+
+std::string un_ord_start_state_template = "\
+  undefine {0};\n\
+";
+
+std::string ord_net_start_state_temlate = "\
+undefine {0};\n\
+for n:Machines do\n\
+        cnt_{0}[n] := 0;\n\
+    endfor;\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
