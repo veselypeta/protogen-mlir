@@ -258,8 +258,12 @@ private:
 
 class StartState {
   public:
-    void print(mlir::raw_ostream &stream);
-    void addText(std::string text);
+    void print(mlir::raw_ostream &stream){
+      stream << startStateText;
+    }
+    void addText(std::string text){
+      startStateText += text;
+    }
   
   private:
   std::string startStateText;
@@ -286,6 +290,7 @@ public:
     return true;
   }
   bool addNetworkRuleset(target::murphi::NetworkRuleset rs);
+  bool addStartState(target::murphi::StartState ss);
   void print(mlir::raw_ostream &stream);
   LanguageConstruct *findReference(std::string id);
 
@@ -336,8 +341,10 @@ private:
 
   std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;
   std::vector<MachineHandlerFunction> machHandleFuncs;
-  CacheRuleset cacheRuleset;
 
+  StartState startState;
+
+  CacheRuleset cacheRuleset;
   std::vector<NetworkRuleset> netRulesets;
 };
 

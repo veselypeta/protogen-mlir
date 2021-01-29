@@ -350,37 +350,84 @@ void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {
   m.addMachineHandleFunction(funcDir);
 }
 
-void addStartStateDefinition(target::murphi::Module &m, mlir::ModuleOp op){
+void addStartStateDefinition(target::murphi::Module &m, mlir::ModuleOp op) {
   // Create a StartState Object
+  target::murphi::StartState ss;
 
+  // Body of the start state
+  std::string body;
   // Add Cache and Directory Startstate Definitions
-  op.walk([&](mlir::murphi::CacheDefOp cacheDefOp){
+  op.walk([&](mlir::murphi::CacheDefOp cacheDefOp) {
+    // String of operations
+    std::string operations;
+
     // get the Fiels and Types arrays
-    mlir::ArrayAttr fields = cacheDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
+    mlir::ArrayAttr fields =
+        cacheDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
     mlir::ArrayAttr types = cacheDefOp.getAttr("types").cast<mlir::ArrayAttr>();
-    for(int i = 0; i < (int)fields.size(); i++){
+    for (int i = 0; i < (int)fields.size(); i++) {
       std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
       std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
 
-      if(field == "State"){
-        // TODO - set the state
-      } else if(type == "Data"){
-         
+      // Hardcoded CL !!!!!
+      if (field == "State") {
+        std::string initialState = "cache_" + type;
+        operations += start_state_assignment("cache", "State", initialState);
+      } else if (field == "cl") {
+        operations += start_state_assignment("cache", "cl", "0");
       }
-
-
     }
+    // Add permission initially to None
+    operations += start_state_assignment("cache", "Perm", "none");
+
+    // Add the Cache State State Def
+    body += mach_start_state("cache", operations);
+
     return mlir::WalkResult::advance();
   });
 
-  op.walk([&](mlir::murphi::DirectoryDefOp dirDefOp){
+  op.walk([&](mlir::murphi::DirectoryDefOp dirDefOp) {
+    std::string operations;
+    std::string machId = "directory";
+
+    mlir::ArrayAttr fields = dirDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
+    mlir::ArrayAttr types = dirDefOp.getAttr("types").cast<mlir::ArrayAttr>();
+
+    for (int i = 0; i < (int)fields.size(); i++) {
+      std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
+      std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
+
+      if (field == "State") {
+        std::string initialState = machId + "_" + type;
+        operations += start_state_assignment(machId, "State", initialState);
+      } else if (field == "cl") {
+        operations += start_state_assignment(machId, "cl", "0");
+      }
+    }
+    // Add permission initially to None
+    operations += start_state_assignment(machId, "Perm", "none");
+
+    // Add the directory definition start state
+    body += mach_start_state(machId, operations);
+
     return mlir::WalkResult::advance();
   });
 
   // Add the network definitions
-  op.walk([&](mlir::murphi::NetworkDeclOp netDeclOp){
+  op.walk([&](mlir::murphi::NetworkDeclOp netDeclOp) {
+    std::string ordering = netDeclOp.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+    std::string netId = netDeclOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    if(ordering == "Ordered"){
+      body += start_state_ordered_network(netId);
+    } else{
+      body += start_state_unordered_network(netId);
+    }
     return mlir::WalkResult::advance();
   });
+
+  // Add the text to SS
+  ss.addText(start_state_defintion(body));
+  m.addStartState(ss);
 };
 
 // void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {

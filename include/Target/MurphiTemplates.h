@@ -28,4 +28,11 @@ std::string case_statement(std::string caseId, std::string body);
 
 std::string cache_ruleset(std::string rules);
 std::string cache_rule(std::string curState, std::string cpuEvent);
+
+std::string start_state_defintion(std::string body);
+std::string mach_start_state(std::string machId, std::string operations);
+std::string start_state_assignment(std::string machId, std::string field, std::string value);
+std::string start_state_unordered_network(std::string netId);
+std::string start_state_ordered_network(std::string netId);
+
 std::string write_serialization();

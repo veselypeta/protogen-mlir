@@ -79,6 +79,11 @@ bool target::murphi::Module::addNetworkRuleset(
   return true;
 }
 
+bool target::murphi::Module::addStartState(target::murphi::StartState ss){
+  this->startState = ss;
+  return true;
+}
+
 void target::murphi::Module::print(mlir::raw_ostream &stream) {
   // ----- Print the constants ----- //
   stream << "const\n\n";
@@ -124,6 +129,7 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
     nrs.print(stream);
   }
   // ----- Print startstates ----- //
+  startState.print(stream);
   // ----- Print Invariant (EASY) (SKIP FOR NOW)----- //
   // stream << write_serialization();
 }

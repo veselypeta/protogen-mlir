@@ -212,7 +212,7 @@ std::string start_state_template = "\
 -- Setup Start States\n\
 startstate\n\
 \n\
-{}\n\
+{0}\n\
 \n\
 endstartstate;\n\
 ";
@@ -221,14 +221,18 @@ std::string mach_start_state_def_template = "\
     -- setup the {0}\n\
     for i:OBJSET_{0} do\n\
         for a:Address do\n\
-\n\        
-        {1}\n\
+\n\
+{1}\n\
 \n\
         endfor;\n\
     endfor;\n\
 ";
 
-std::string un_ord_start_state_template = "\
+std::string start_state_assign_template = "\
+\t\ti_{0}[i].CL[a].{1} := {2}; \n\
+";
+
+std::string unord_net_start_state_template = "\
   undefine {0};\n\
 ";
 
@@ -294,11 +298,37 @@ std::string cache_ruleset(std::string rules){
   return fmt::format(cache_ruleset_template, rules);
 }
 
+// Generate a rule within a cache ruleset
 std::string cache_rule(std::string curState, std::string cpuEvent){
   return fmt::format(cache_rule_template, curState, cpuEvent);
 }
 
+// Create a Startstate definition, and insert the body in appropriate place
+std::string start_state_defintion(std::string body){
+  return fmt::format(start_state_template, body);
+}
 
+// Generate the machine startstate definitions
+std::string mach_start_state(std::string machId, std::string operations){
+  return fmt::format(mach_start_state_def_template, machId, operations);
+}
+
+// Generate Assignment Operation
+std::string start_state_assignment(std::string machId, std::string field, std::string value){
+  return fmt::format(start_state_assign_template, machId, field, value);
+}
+
+// Generate the StartState for an unordered network
+std::string start_state_unordered_network(std::string netId){
+  return fmt::format(unord_net_start_state_template, netId);
+}
+
+// Generate the StartState for an ordered network
+std::string start_state_ordered_network(std::string netId){
+  return fmt::format(ord_net_start_state_temlate, netId);
+}
+
+// Generate the WriteSerialization result
 std::string write_serialization(){
   return write_serialization_template;
 }
