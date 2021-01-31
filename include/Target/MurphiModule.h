@@ -184,9 +184,11 @@ class MessageHandler {
 public:
   MessageHandler(std::string msgId): messageId{msgId} {}
   std::string to_string();
+  void add_operation_text(std::string text);
 
 private:
-  std::string messageId;;
+  std::string messageId;
+  std::string operationsText;
 };
 
 class StateHandler {

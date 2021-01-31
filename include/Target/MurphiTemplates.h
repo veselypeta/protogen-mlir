@@ -37,3 +37,8 @@ std::string start_state_unordered_network(std::string netId);
 std::string start_state_ordered_network(std::string netId);
 
 std::string write_serialization();
+
+
+// operations
+std::string message_constructor(std::string constrId, std::string parameters);
+std::string send_message(std::string netId);

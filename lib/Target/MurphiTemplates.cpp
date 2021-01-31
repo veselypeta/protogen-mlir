@@ -243,6 +243,14 @@ for n:Machines do\n\
     endfor;\n\
 ";
 
+std::string msg_constr_template = "\
+msg := {0}(adr, {1});\n\
+";
+
+std::string call_send_template = "\
+Send_{0}(msg); \n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -331,4 +339,17 @@ std::string start_state_ordered_network(std::string netId){
 // Generate the WriteSerialization result
 std::string write_serialization(){
   return write_serialization_template;
+}
+
+
+/// =================== ///
+// Operations Templates ///
+/// =================== ///
+
+std::string message_constructor(std::string constrId, std::string parameters){
+  return fmt::format(msg_constr_template, constrId, parameters);
+}
+
+std::string send_message(std::string netId){
+  return fmt::format(call_send_template, netId);
 }

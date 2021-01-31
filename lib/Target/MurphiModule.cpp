@@ -354,6 +354,10 @@ void target::murphi::StateHandler::addMessageHandler(target::murphi::MessageHand
 
 // MessageHandler
 std::string target::murphi::MessageHandler::to_string(){
-  return case_statement(messageId, "-- INSERT BODY OF FUNCTION HERE --");
+  return case_statement(messageId, operationsText);
+}
+
+void target::murphi::MessageHandler::add_operation_text(std::string text){
+  operationsText += text;
 }
 
