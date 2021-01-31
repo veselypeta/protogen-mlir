@@ -202,7 +202,41 @@ def SetOp: PCC_Op<"set", []>{
         let summary = "Assign an SSA value to a global";
         let description = [{}];
 
-        let arguments = (ins AnyAttr:$id, AnyType:$value);
+        let arguments = (ins AnyAttr:$id, AnyAttr:$value);
+
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$id, "std::string":$value) , [{
+                        $_state.addAttribute("id", $_builder.getStringAttr(id));
+                        $_state.addAttribute("value", $_builder.getStringAttr(value));
+                }]>
+        ];
+}
+
+def IfOp: PCC_Op<"if", []>{
+        let summary = "If Operation for generaing if condition";
+        let description = [{}];
+
+        let arguments = (ins AnyAttr:$lhs, AnyAttr:$comparison, AnyAttr:$rhs);
+
+        let regions = (region 
+                SizedRegion<1>:$body
+        );
+
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$lhs, "std::string":$comparison, "std::string":$rhs) , [{
+                        $_state.addAttribute("lhs", $_builder.getStringAttr(lhs));
+                        $_state.addAttribute("comparison", $_builder.getStringAttr(comparison));
+                        $_state.addAttribute("rhs", $_builder.getStringAttr(rhs));
+                        $_state.addRegion();
+                }]>
+        ];
+}
+
+
+def EnfIfOp: PCC_Op<"end_if", [Terminator, HasParent<"IfOp">]>{
+        let summary = "end if op";
+        let description = [{}];
+
 }
 
 #endif // PCC_OPS

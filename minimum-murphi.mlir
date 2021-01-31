@@ -34,6 +34,8 @@ module {
     }){machine="cache", cur_state="cache_I", action="store"} : () -> ()
 
     "murphi.function"()({
+        // "murphi.set" (){id="cl", value="GetM_Ack_D.cl"} : () -> ()
+        // "murphi.set" (){id="State", value="cache_I"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I_store", action="GetM_Ack_D"} : () -> ()
 

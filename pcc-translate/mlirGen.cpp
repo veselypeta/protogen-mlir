@@ -259,25 +259,7 @@ private:
 
   // arch_block : ARCH ID OCBRACE arch_body CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
-
-    // get the id of the architecture - cache or directory
-    // std::string id = ctx->ID()->getText();
-
-    // auto funcType = builder.getFunctionType(
-    //     llvm::None,
-    //     llvm::None); // TODO - set the type of the function correctly
-    // mlir::FuncOp function =
-    //     mlir::FuncOp::create(builder.getUnknownLoc(), id, funcType);
-
-    // auto entryBlock = function.addEntryBlock();
-    // builder.setInsertionPointToStart(entryBlock);
-
     return mlirGen(ctx->arch_body());
-
-    // builder.setInsertionPointToEnd(entryBlock);
-    // builder.create<mlir::ReturnOp>(builder.getUnknownLoc());
-    // theModule.push_back(function);
-    // return mlir::success();
   }
 
   // arch_body: stable_def process_block*;
@@ -295,18 +277,24 @@ private:
     // Create a scope in the symbol table to hold variable declarations.
     SymbolTableScopeT var_scope(symbolTable);
 
+    // Get the parent architecture type (cache or directory)
     ProtoCCParser::Arch_blockContext *parentArchCtx =
         dynamic_cast<ProtoCCParser::Arch_blockContext *>(ctx->parent->parent);
     if (parentArchCtx == nullptr) {
       return mlir::failure();
     }
 
+    // Set a flag for the current machine we are working on
     std::string machine = parentArchCtx->ID()->getText();
     this->cur_mach = machine;
+
+    // Get the current state and action from the Process() parameters
     std::string cur_state =
         machine + "_" + ctx->process_trans()->ID()->getText();
     std::string action = ctx->process_trans()->process_events()->getText();
-    
+
+    // Some will have an end-state -- TODO more research into how to set the
+    // end-state for each state handler
     mlir::Attribute endStateAttr;
     if (ProtoCCParser::Process_finalstateContext *finalState =
             ctx->process_trans()->process_finalstate()) {
@@ -316,13 +304,17 @@ private:
       }
     }
 
+    // create the function op for the state and event
     mlir::pcc::FunctionOp funOp = builder.create<mlir::pcc::FunctionOp>(
         builder.getUnknownLoc(), builder.getStringAttr(machine),
         builder.getStringAttr(cur_state), builder.getStringAttr(action),
         endStateAttr);
 
+    // add the entry block to the function
     mlir::Block *entryBlock = new mlir::Block();
     funOp.region().push_back(entryBlock);
+
+    // set the insertion point inside this block
     builder.setInsertionPointToStart(entryBlock);
 
     // Loop and create Operations
@@ -332,10 +324,12 @@ private:
       }
     }
 
+    // Insert a return and reset the insertion point
     mlir::Value v;
     builder.create<mlir::pcc::ReturnOp>(builder.getUnknownLoc(), v);
     builder.setInsertionPointAfter(funOp);
 
+    // add the function to the module
     theModule.push_back(funOp);
 
     return mlir::success();
@@ -360,6 +354,7 @@ private:
     if (ctx->transaction() != nullptr) {
       return mlirGen(ctx->transaction());
     }
+    // TODO -- add support for network_mcast & network_bcast
     return mlir::success();
   }
 
@@ -370,7 +365,7 @@ private:
       return mlirGen(ctx->assignment());
     }
     if (ctx->conditional() != nullptr) {
-      // TODO - conditional
+      return mlirGen(ctx->conditional());
     }
     if (ctx->object_block() != nullptr) {
       // TODO - object instantiation
@@ -391,10 +386,14 @@ private:
   mlir::LogicalResult mlirGen(ProtoCCParser::AssignmentContext *ctx) {
     std::string assignmentId = ctx->process_finalident()->getText();
 
+    // Can be a MSG Constructor
+    // Can be assigning to cache or directory state
+    // or general assignment
+
     std::vector<std::string> fieldsvec;
     std::vector<std::string> typesvec;
 
-    // Get the fields and types attributes
+    // Get the fields and types attributes of cache and directory aux-state
     if (cur_mach == "cache") {
       theModule.walk([&](mlir::murphi::CacheDefOp cacheOp) {
         auto fields = cacheOp.getAttr("fields").cast<mlir::ArrayAttr>();
@@ -423,6 +422,15 @@ private:
     if (std::find(fieldsvec.begin(), fieldsvec.end(), assignmentId) !=
         fieldsvec.end()) {
       // Here handle things like State = M; cl = msg.cl; etc...
+      std::string rhs;
+      // Special Case State
+      if (assignmentId == "State") {
+        rhs = cur_mach + "_" + ctx->assign_types()->getText();
+      } else {
+        rhs = ctx->assign_types()->getText();
+      }
+      builder.create<mlir::pcc::SetOp>(builder.getUnknownLoc(), assignmentId,
+                                       rhs);
       return mlir::success();
     }
 
@@ -504,7 +512,8 @@ private:
   // CBRACE)*;
   // object_idres: ID | NID;
   mlir::LogicalResult mlirGen(ProtoCCParser::Object_exprContext *ctx) {
-
+    // TODO -- implement -- only used when assigning object expr to non aux
+    // state variable
     return mlir::success();
   }
 
@@ -537,8 +546,6 @@ private:
         builder.create<mlir::pcc::WhenOp>(builder.getUnknownLoc(), msgId);
     // Lookup the Message type and put it in as an argument to the block
     mlir::Block *entryBlock = new mlir::Block;
-    // mlir::Type msgType = messageTypeMap.lookup("Resp").first; // TODO - fix
-    // entryBlock->addArgument(msgType);
     whenOp.getRegion().push_back(entryBlock);
     builder.setInsertionPointToStart(entryBlock);
 
@@ -560,7 +567,7 @@ private:
       return mlirGen(ctx->expressions());
     }
     if (ctx->next_trans() != nullptr) {
-      // TODO - implement
+      // TODO - implement -- probably quite importatnt
     }
     if (ctx->next_break() != nullptr) {
       return mlirGen(ctx->next_break());
@@ -588,13 +595,18 @@ private:
   }
 
   // Generate MLIR for Network Send
+  // network_send : ID DOT send_function OBRACE ID CBRACE SEMICOLON
   mlir::LogicalResult mlirGen(ProtoCCParser::Network_sendContext *ctx) {
     auto ids = ctx->ID();
     std::string netId = ids[0]->getText();
     std::string msgId = ids[1]->getText();
 
+    // Check that the MsgId actually exists i.e. there is a corresponding
+    // msgConstructor
     auto msgConstructor = symbolTable.lookup(msgId);
     assert(msgConstructor.first != nullptr);
+
+    // TODO -- check that network exists
 
     mlir::Value msgInput = msgConstructor.first;
     builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), msgInput,
@@ -602,47 +614,55 @@ private:
     return mlir::success();
   }
 
-  // std::vector<std::string>
-  // getStableStates(ProtoCCParser::Stable_defContext *ctx) {
-  //   std::vector<std::string> stable_states;
-  //   for (auto state : ctx->ID()) {
-  //     stable_states.push_back(state->getText());
-  //   }
-  //   return stable_states;
-  // }
+  mlir::LogicalResult mlirGen(ProtoCCParser::ExprwbreakContext *ctx) {
+    return mlir::success();
+  }
+  // Create a conditional Op
+  mlir::LogicalResult mlirGen(ProtoCCParser::ConditionalContext *ctx) {
+    // If statement
+    if (ctx->if_stmt() != nullptr) {
 
-  // mlir::Location getLoc(antlr4::Token &tok) {
-  //   antlr4::TokenSource *source = tok.getTokenSource();
-  //   auto line = source->getLine();
-  //   auto col = source->getCharPositionInLine();
-  //   auto file = source->getSourceName();
-  //   return builder.getFileLineColLoc(builder.getIdentifier(file), line, col);
-  // }
+      // Currently only using the first condition i.e. owner==PutM.src 
+      // -- TODO -- add more complex conditions
+      ProtoCCParser::Cond_selContext *firstCondition =
+          ctx->if_stmt()->cond_comb()->cond_rel()[0]->cond_sel();
 
-  // Get Type from Declarations Context
-  // declarations : int_decl | bool_decl | state_decl | data_decl | id_decl;
-  // mlir::Type getType(ProtoCCParser::DeclarationsContext *ctx) {
-  //   if (ctx->bool_decl() != nullptr) {
-  //     return builder.getI1Type();
-  //   }
-  //   if (ctx->int_decl() != nullptr) {
-  //     return builder.getI64Type();
-  //   }
-  //   if (ctx->data_decl() != nullptr) {
-  //     return mlir::pcc::DataType::get(builder.getContext());
-  //   }
-  //   if (ctx->id_decl() != nullptr) {
-  //     return mlir::pcc::IDType::get(builder.getContext());
-  //   }
-  //   return nullptr;
-  // }
+      std::string lhs = firstCondition->cond_type_expr()[0]->getText();
+      std::string rhs = firstCondition->cond_type_expr()[1]->getText();
+
+      std::string comparison =
+          firstCondition->relational_operator()[0]->getText();
+
+      mlir::pcc::IfOp ifOp = builder.create<mlir::pcc::IfOp>(
+          builder.getUnknownLoc(), lhs, comparison, rhs);
+      mlir::Block *ifOpEntry = new mlir::Block();
+      ifOp.getRegion().push_back(ifOpEntry);
+
+      // Set the insertion point inside the block
+      builder.setInsertionPointToStart(ifOpEntry);
+
+      // Add nested Operations
+      for (auto expr : ctx->if_stmt()->if_expression()->exprwbreak()) {
+        if(mlir::failed(mlirGen(expr))){
+          return mlir::failure();
+        }
+      }
+
+      // Add a return op
+      builder.create<mlir::pcc::EnfIfOp>(builder.getUnknownLoc());
+
+      // reset insertion point
+      builder.setInsertionPointAfter(ifOp);
+    }
+    return mlir::success();
+  }
 };
 
 } // namespace
 
 namespace pcc {
 mlir::ModuleOp mlirGen(mlir::MLIRContext &mlirCtx,
-                              ProtoCCParser::DocumentContext *docCtx) {
+                       ProtoCCParser::DocumentContext *docCtx) {
   return MLIRGenImpl(mlirCtx).mlirGen(docCtx);
 }
 } // namespace pcc
