@@ -614,7 +614,19 @@ private:
     return mlir::success();
   }
 
+
+  // exprwbreak: expressions | network_send | network_mcast | network_bcast | transaction | next_break;
   mlir::LogicalResult mlirGen(ProtoCCParser::ExprwbreakContext *ctx) {
+    if(ctx->expressions() != nullptr){
+      return mlirGen(ctx->expressions());
+    }
+    if(ctx->network_send() != nullptr){
+      return mlirGen(ctx->network_send());
+    }
+    if(ctx->transaction() != nullptr){
+      // TODO -- Currently don't suuport transactions within if statement
+    }
+    // TODO - other paths are currently not supported
     return mlir::success();
   }
   // Create a conditional Op

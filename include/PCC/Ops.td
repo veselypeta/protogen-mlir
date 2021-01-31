@@ -98,8 +98,6 @@ def FunctionOp : PCC_Op<"function">{
 }
 
 
-
-
 def SendOp: PCC_Op<"send", []>{
         let summary = "Operation to send a message along a network";
 

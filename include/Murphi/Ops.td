@@ -31,6 +31,7 @@ def ConstantOp : Murphi_Op<"constant", [NoSideEffect]> {
     ];
 }
 
+// Maybe delete
 def EnumOp : Murphi_Op<"enum"> {
         let summary = "declare an enum";
         let description = [{}];
@@ -109,9 +110,36 @@ def NetworkDeclOp: Murphi_Op<"network_decl", []> {
 def MsgConstrOp : Murphi_Op<"msg_constr", [NoSideEffect]>{
         let summary = "message constructor";
         let description = [{}];
-        let arguments = (ins ArrayAttr:$parameters);
+        let arguments = (ins ArrayAttr:$parameters, AnyAttr:$msgType);
         let results = (outs AnyType:$output);
 }
+
+def SendOp: Murphi_Op<"send", []>{
+        let summary = "send message on a network";
+        let description = [{}];
+        let arguments = (ins AnyType:$msg, AnyAttr:$netId);
+}
+
+def SetOp:Murphi_Op<"set", []>{
+        let summary = "set some value in the auxiliarly state";
+        let description = [{}];
+        let arguments = (ins AnyAttr:$id, AnyAttr:$value);
+}
+
+def IfOp: Murphi_Op<"if", []>{
+        let summary = "basic if statement";
+        let description = [{}];
+        let arguments = (ins AnyAttr:$lhs, AnyAttr:$comparison, AnyAttr:$rhs);
+        let regions = (region 
+                SizedRegion<1>:$body
+        );
+}
+
+def EnfIfOp: Murphi_Op<"end_if", [Terminator, HasParent<"IfOp">]>{
+        let summary = "end if op";
+        let description = [{}];
+}
+
 
 
 
