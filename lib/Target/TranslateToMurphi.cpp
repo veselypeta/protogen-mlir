@@ -8,11 +8,13 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include <iostream>
 #include <set>
+#include <algorithm>
 
 namespace murphiGenImpl {
 class MurphiGen {
 public:
   MurphiGen(mlir::ModuleOp moduleOp) : moduleOp{moduleOp} {}
+  // We return a reference to prevent destructor being called
   target::murphi::Module &createModule() {
     addConstants();
     addBoilerplateConstants();
@@ -133,8 +135,8 @@ private:
 
   void addAddressesAndCl() {
     // Address: scalarset(ADR_COUNT);
-    murphiModule.addScalarset(
-        new target::murphi::Scalarset("Address", murphiModule.findReference("ADR_COUNT")));
+    murphiModule.addScalarset(new target::murphi::Scalarset(
+        "Address", murphiModule.findReference("ADR_COUNT")));
 
     // ClValue: 0..VAL_COUNT;
     target::murphi::ValRange *clValue = new target::murphi::ValRange(
@@ -273,8 +275,8 @@ private:
 
   void addVariableDeclarations() {
     // ADD CACHE AND DIRECTORY VARIABLES
-    target::murphi::Variable *i_cache =
-        new target::murphi::Variable("i_cache", murphiModule.findReference("OBJ_cache"));
+    target::murphi::Variable *i_cache = new target::murphi::Variable(
+        "i_cache", murphiModule.findReference("OBJ_cache"));
     target::murphi::Variable *i_directory = new target::murphi::Variable(
         "i_directory", murphiModule.findReference("OBJ_directory"));
     murphiModule.addVariable(i_cache);
@@ -288,8 +290,8 @@ private:
           netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
       if (netOrder == "Ordered") {
         // if ordered we need to generate the network and the count
-        target::murphi::Variable *netVar =
-            new target::murphi::Variable(netId, murphiModule.findReference("OBJ_Ordered"));
+        target::murphi::Variable *netVar = new target::murphi::Variable(
+            netId, murphiModule.findReference("OBJ_Ordered"));
         target::murphi::Variable *netCount = new target::murphi::Variable(
             netId, murphiModule.findReference("OBJ_Orderedcnt"));
         murphiModule.addVariable(netVar);
@@ -362,13 +364,44 @@ private:
     return a->getAttr(attrId).cast<mlir::StringAttr>().getValue().str();
   }
 
-  // std::vector<std::string> getMachineAuxStateReferences(std::string mach) {
-  //   std::vector<std::string> auxStates;
-  //   if (mach == "cache") {
-
-  //   } else {
-  //   }
-  // }
+  // Get all the aux state definitions -- i.e State, cl, owner ...
+  std::vector<std::string> getMachineAuxStateReferences(std::string mach) {
+    std::vector<std::string> auxStates;
+    if (mach == "cache") {
+      moduleOp.walk([&](mlir::murphi::CacheDefOp cacheDef) {
+        mlir::ArrayAttr cacheFieldsAttr = getArrayAttr(cacheDef, "fields");
+        mlir::ArrayAttr cacheTypesAttr = getArrayAttr(cacheDef, "types");
+        // loop over all the attributes
+        for (int i = 0; i < (int)cacheFieldsAttr.size(); i++) {
+          std::string field = getAttributeAsStr(cacheFieldsAttr[i]);
+          std::string type = getAttributeAsStr(cacheTypesAttr[i]);
+          // Special case - State
+          if (type == "State") {
+            auxStates.push_back(type);
+          } else {
+            auxStates.push_back(field);
+          }
+        }
+      });
+    } else {
+      moduleOp.walk([&](mlir::murphi::DirectoryDefOp directoryDef) {
+        mlir::ArrayAttr directoryFieldsAttr = getArrayAttr(directoryDef, "fields");
+        mlir::ArrayAttr directoryTypesAttr = getArrayAttr(directoryDef, "types");
+        // loop over all the attributes
+        for (int i = 0; i < (int)directoryFieldsAttr.size(); i++) {
+          std::string field = getAttributeAsStr(directoryFieldsAttr[i]);
+          std::string type = getAttributeAsStr(directoryTypesAttr[i]);
+          // Special case - State
+          if (type == "State") {
+            auxStates.push_back(type);
+          } else {
+            auxStates.push_back(field);
+          }
+        }
+      });
+    }
+    return auxStates;
+  }
 
   std::string processObjectReference(std::string param, std::string machine) {
     // find (if exists) the dot
@@ -377,12 +410,13 @@ private:
     // if no dot then we are either referencing a constant or something in the
     // aux state
     if (dotLoc == std::string::npos) {
-      // TODO --- Fix
-      if (machine == "cache") {
-        return "cache_entry." + param;
-      } else {
-        return "directory_entry." + param;
+      // get the aux state list i.e. [State, cl, owner ...]
+      std::vector<std::string> auxState = getMachineAuxStateReferences(machine);
+      // If referece is part of aux state -- then we return mach_entry.param i.e. directory_entry.owner
+      if(std::find(auxState.begin(), auxState.end(), param) != auxState.end()){
+        return machine + "_entry." + param;
       }
+      // otherwise -- we just return as is, typically for the State i.e. cache_I or some constant
       return param;
     }
 
@@ -439,7 +473,7 @@ private:
         parameters.push_back(processObjectReference(paramStr, machine));
       }
     }
-    // std::cout << interleaveComma(parameters) << std::endl;
+
     return message_constructor(constrId, interleaveComma(parameters));
   }
 
@@ -476,7 +510,7 @@ private:
               mlir::dyn_cast<mlir::murphi::SetOp>(ref)) {
         std::string id = getStrAttrFromOp(setOp, "id");
         std::string value = getStrAttrFromOp(setOp, "value");
-        msgHandler.add_operation_text(assign_value(machine, id, value));
+        msgHandler.add_operation_text(assign_value(machine, id, processObjectReference(value, machine)));
         // setOp.dump();
       }
     }
@@ -496,8 +530,7 @@ private:
       // Filter over all possible messages that can be received
       if (!isCpuEvent(action) && machine == machineId && cur_state == stateId) {
         // For each such message -- possibly zero -- create a message handler
-        target::murphi::MessageHandler msgHandler =
-            getMessageHandler(funOp);
+        target::murphi::MessageHandler msgHandler = getMessageHandler(funOp);
         // target::murphi::MessageHandler msgHandler(action);
         sh.addMessageHandler(msgHandler);
       }
