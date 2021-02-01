@@ -251,6 +251,10 @@ std::string call_send_template = "\
 Send_{0}(msg); \n\
 ";
 
+std::string aux_state_assignment = "\
+{0}_entry.{1} := {2};\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -352,4 +356,8 @@ std::string message_constructor(std::string constrId, std::string parameters){
 
 std::string send_message(std::string netId){
   return fmt::format(call_send_template, netId);
+}
+
+std::string assign_value(std::string machId, std::string id, std::string value){
+  return fmt::format(aux_state_assignment, machId, id, value);
 }

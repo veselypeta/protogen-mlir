@@ -9,645 +9,683 @@
 #include <iostream>
 #include <set>
 
-bool isCpuEvent(std::string action) {
-  return action == "load" || action == "store" || action == "evict";
-}
+namespace murphiGenImpl {
+class MurphiGen {
+public:
+  MurphiGen(mlir::ModuleOp moduleOp) : moduleOp{moduleOp} {}
+  target::murphi::Module &createModule() {
+    addConstants();
+    addBoilerplateConstants();
+    addAccessEnum();
+    addMessageTypes();
+    addCacheDirectoryStates();
 
-void addConstants(target::murphi::Module &m, mlir::ModuleOp op) {
-  op.walk([&](mlir::murphi::ConstantOp constOp) {
-    int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
-    std::string id =
-        constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+    addAddressesAndCl();
+    addCacheDirectoryObjectDefinitions();
+    addCacheDirectoryDefinitions();
+    addGloablMessageType();
+    addBoilerplateTypes();
+    addVariableDeclarations();
 
-    target::murphi::Constant *constDecl =
-        new target::murphi::Constant(id, value);
-    m.addConstant(constDecl);
+    addMessageFactories();
+    addSendFunctions();
+    addCacheFunction();
+    addDirectoryFunction();
 
-    return mlir::WalkResult::advance();
-  });
-}
-
-void addBoilerplateConstants(target::murphi::Module &m) {
-  // VAL_COUNT: 1;
-  m.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
-
-  // ADR_COUNT: 1;
-  m.addConstant(new target::murphi::Constant("ADR_COUNT", 1));
-
-  // O_NET_MAX: 12;
-  // U_NET_MAX: 12;
-  m.addConstant(new target::murphi::Constant("O_NET_MAX", 1));
-  m.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
-}
-
-void addAccessEnum(target::murphi::Module &m) {
-  std::vector<std::string> enumList = {"load", "store", "none"};
-  m.addEnum(new target::murphi::Enum("Access", enumList));
-}
-
-void addMessageTypes(target::murphi::Module &m, mlir::ModuleOp op) {
-  std::set<std::string> msgTypes;
-  op.walk([&](mlir::murphi::FunctionOp funOp) {
-    std::string action =
-        funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    if (!isCpuEvent(action)) {
-      msgTypes.insert(action);
-    }
-    return mlir::WalkResult::advance();
-  });
-  std::vector<std::string> msgTypesVec;
-  std::copy(msgTypes.begin(), msgTypes.end(), std::back_inserter(msgTypesVec));
-
-  target::murphi::Enum *msgTypesEnum =
-      new target::murphi::Enum("MessageType", msgTypesVec);
-  m.addEnum(msgTypesEnum);
-}
-
-void addCacheDirectoryStates(target::murphi::Module &m, mlir::ModuleOp op) {
-  std::set<std::string> cacheState;
-  std::set<std::string> dirState;
-  op.walk([&](mlir::murphi::FunctionOp funOp) {
-    std::string machine =
-        funOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
-    std::string state =
-        funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-    if (machine == "cache") {
-      cacheState.insert(state);
-    }
-    if (machine == "directory") {
-      dirState.insert(state);
-    }
-    return mlir::WalkResult::advance();
-  });
-  // Convert Set to Vector
-  std::vector<std::string> cacheStateVec;
-  std::vector<std::string> dirStateVec;
-
-  std::copy(cacheState.begin(), cacheState.end(),
-            std::back_inserter(cacheStateVec));
-  std::copy(dirState.begin(), dirState.end(), std::back_inserter(dirStateVec));
-
-  target::murphi::Enum *cacheStateDecl =
-      new target::murphi::Enum("cache_state", cacheStateVec);
-  target::murphi::Enum *dirStateDecl =
-      new target::murphi::Enum("directory_state", dirStateVec);
-  m.addEnum(cacheStateDecl);
-  m.addEnum(dirStateDecl);
-}
-
-void addAddressesAndCl(target::murphi::Module &m) {
-  // Address: scalarset(ADR_COUNT);
-  m.addScalarset(
-      new target::murphi::Scalarset("Address", m.findReference("ADR_COUNT")));
-
-  // ClValue: 0..VAL_COUNT;
-  target::murphi::ValRange *clValue =
-      new target::murphi::ValRange("ClValue", 0, m.findReference("VAL_COUNT"));
-  m.addValRange(clValue);
-};
-
-void addCacheDirectoryObjectDefinitions(target::murphi::Module &m) {
-  // OBJSET_cache: scalarset(NrCaches);
-  target::murphi::Scalarset *objsetCache = new target::murphi::Scalarset(
-      "OBJSET_cache", m.findReference("nrCaches"));
-
-  // OBJSET_directory: enum{directory};
-  std::vector<std::string> directoryValues;
-  directoryValues.push_back("directory");
-  target::murphi::Enum *objsetDirectory =
-      new target::murphi::Enum("OBJSET_directory", directoryValues);
-
-  // Machines: union{OBJSET_cache, OBJSET_directory};
-  target::murphi::Union *machines =
-      new target::murphi::Union("Machines", objsetCache, objsetDirectory);
-
-  // Add Then to the Module
-  m.addScalarset(objsetCache);
-  m.addEnum(objsetDirectory);
-  m.addUnion(machines);
-}
-
-void addCacheDirectoryDefinitions(target::murphi::Module &m,
-                                  mlir::ModuleOp op) {
-  target::murphi::Record *cache = new target::murphi::Record("ENTRY_cache");
-  target::murphi::Record *directory =
-      new target::murphi::Record("ENTRY_directory");
-  op.walk([&](mlir::murphi::CacheDefOp cacheDef) {
-    auto fieldsAttr = cacheDef.getAttr("fields").cast<mlir::ArrayAttr>();
-    auto typesAttr = cacheDef.getAttr("types").cast<mlir::ArrayAttr>();
-    for (int i = 0; i < (int)fieldsAttr.size(); i++) {
-      std::string fieldName =
-          fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
-      std::string typeName =
-          typesAttr[i].cast<mlir::StringAttr>().getValue().str();
-      std::string typeId;
-      if (fieldName == "State") {
-        typeId = "cache_state";
-      } else if (typeName == "Data") {
-        typeId = "ClValue";
-      } else if (typeName == "ID") {
-        typeId = "Machines";
-      }
-      // Push each element into the data structure
-      cache->addEntry(fieldName, m.findReference(typeId));
-    }
-    cache->addEntry("Perm", m.findReference("Access"));
-  });
-
-  op.walk([&](mlir::murphi::DirectoryDefOp directoryDef) {
-    auto fieldsAttr = directoryDef.getAttr("fields").cast<mlir::ArrayAttr>();
-    auto typesAttr = directoryDef.getAttr("types").cast<mlir::ArrayAttr>();
-    for (int i = 0; i < (int)fieldsAttr.size(); i++) {
-      std::string fieldName =
-          fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
-      std::string typeName =
-          typesAttr[i].cast<mlir::StringAttr>().getValue().str();
-      std::string typeId;
-      if (fieldName == "State") {
-        typeId = "directory_state";
-      } else if (typeName == "Data") {
-        typeId = "ClValue";
-      } else if (typeName == "ID") {
-        typeId = "Machines";
-      }
-      // Push each element into the data structure
-      directory->addEntry(fieldName, m.findReference(typeId));
-    }
-    directory->addEntry("Perm", m.findReference("Access"));
-  });
-  // Add Access
-
-  m.addRecord(cache);
-  m.addRecord(directory);
-}
-
-void addGloablMessageType(target::murphi::Module &m, mlir::ModuleOp op) {
-  target::murphi::Record *msgDef = new target::murphi::Record("Message");
-  // All messages have default values
-  // Address of the CL
-  msgDef->addEntry("adr", m.findReference("Address"));
-  // Message Type
-  msgDef->addEntry("mtype", m.findReference("MessageType"));
-  // Msg Src
-  msgDef->addEntry("src", m.findReference("Machines"));
-  // Msg Dest
-  msgDef->addEntry("dst", m.findReference("Machines"));
-
-  // Now walk all the Msg Declaration operations and find
-  op.walk([&](mlir::murphi::MessageDefOp op) {
-    auto fieldIds = op.getAttr("fields").cast<mlir::ArrayAttr>();
-    auto typeIds = op.getAttr("types").cast<mlir::ArrayAttr>();
-
-    for (int i = 0; i < (int)fieldIds.size(); i++) {
-      std::string fid = fieldIds[i].cast<mlir::StringAttr>().getValue().str();
-      std::string tid = typeIds[i].cast<mlir::StringAttr>().getValue().str();
-      // TODO -- Make more sophisticated
-      if (tid == "Data") {
-        msgDef->addEntry(fid, m.findReference("ClValue"));
-      }
-    }
-  });
-
-  m.addRecord(msgDef);
-}
-
-void addBoilerplateTypes(target::murphi::Module &m) {
-  target::murphi::Boilerplate *mcache =
-      new target::murphi::Boilerplate("MACH_cache", MACH_cache);
-  target::murphi::Boilerplate *mdir =
-      new target::murphi::Boilerplate("MACH_directory", MACH_directory);
-  target::murphi::Boilerplate *objcache =
-      new target::murphi::Boilerplate("OBJ_cache", OBJ_cache);
-  target::murphi::Boilerplate *objdir =
-      new target::murphi::Boilerplate("OBJ_directory", OBJ_directory);
-  target::murphi::Boilerplate *objorder =
-      new target::murphi::Boilerplate("OBJ_Ordered", OBJ_Ordered);
-  target::murphi::Boilerplate *ordercnt =
-      new target::murphi::Boilerplate("OBJ_Orderedcnt", OBJ_Orderedcnt);
-  target::murphi::Boilerplate *objunorder =
-      new target::murphi::Boilerplate("OBJ_Unordered", OBJ_Unordered);
-
-  m.addBoilerplate(mcache);
-  m.addBoilerplate(mdir);
-  m.addBoilerplate(objcache);
-  m.addBoilerplate(objdir);
-  m.addBoilerplate(objorder);
-  m.addBoilerplate(ordercnt);
-  m.addBoilerplate(objunorder);
-}
-
-void addVariableDeclarations(target::murphi::Module &m, mlir::ModuleOp op) {
-  // ADD CACHE AND DIRECTORY VARIABLES
-  target::murphi::Variable *i_cache =
-      new target::murphi::Variable("i_cache", m.findReference("OBJ_cache"));
-  target::murphi::Variable *i_directory = new target::murphi::Variable(
-      "i_directory", m.findReference("OBJ_directory"));
-  m.addVariable(i_cache);
-  m.addVariable(i_directory);
-
-  // find network declarations
-  op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
-    std::string netId =
-        netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    std::string netOrder =
-        netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
-    if (netOrder == "Ordered") {
-      // if ordered we need to generate the network and the count
-      target::murphi::Variable *netVar =
-          new target::murphi::Variable(netId, m.findReference("OBJ_Ordered"));
-      target::murphi::Variable *netCount = new target::murphi::Variable(
-          netId, m.findReference("OBJ_Orderedcnt"));
-      m.addVariable(netVar);
-      m.addVariable(netCount);
-
-    } else {
-      target::murphi::Variable *netVar =
-          new target::murphi::Variable(netId, m.findReference("OBJ_Unordered"));
-      m.addVariable(netVar);
-    }
-  });
-}
-
-void addMessageFactories(target::murphi::Module &m, mlir::ModuleOp op) {
-  target::murphi::LanguageConstruct *messageDeclaration =
-      m.findReference("Message");
-  op.walk([&](mlir::murphi::MessageDefOp msgDef) {
-    std::string msgId =
-        msgDef.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    target::murphi::MessageContructor *msgConstr =
-        new target::murphi::MessageContructor(msgId, messageDeclaration);
-    auto fieldsAttr = msgDef.getAttr("fields").cast<mlir::ArrayAttr>();
-    // auto typesAttr = msgDef.getAttr("types").cast<mlir::ArrayAttr>();
-    for (int i = 0; i < (int)fieldsAttr.size(); i++) {
-      msgConstr->addExtraField(
-          fieldsAttr[i].cast<mlir::StringAttr>().getValue().str());
-    }
-    // ADD MSG CONSTROCTOR TO MODULE
-    m.addMessageConstructor(msgConstr);
-    return mlir::WalkResult::advance();
-  });
-}
-
-void addSendFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
-  op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
-    std::string netId =
-        netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    std::string netOrder =
-        netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
-    target::murphi::NetworkOrder order =
-        netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered
-                              : target::murphi::NetworkOrder::Unordered;
-    target::murphi::SendFunction *sendFunc =
-        new target::murphi::SendFunction(netId, order);
-    m.addSendFunction(sendFunc);
-  });
-}
-
-std::string interleaveComma(std::vector<std::string> values) {
-  std::string interleaved;
-  for (std::string v : values) {
-    if (v == values.front()) {
-      interleaved += v;
-    } else {
-      interleaved += ", " + v;
-    }
-  }
-  return interleaved;
-}
-
-std::string getAttributeAsStr(const mlir::Attribute &a) {
-  return a.cast<mlir::StringAttr>().getValue().str();
-}
-
-std::string getStrAttrFromOp(mlir::Operation *a, std::string attrId) {
-  return a->getAttr(attrId).cast<mlir::StringAttr>().getValue().str();
-}
-
-std::string processObjectReference(std::string param, std::string machine) {
-  // find (if exists) the dot
-  std::size_t dotLoc = param.find('.');
-
-  // if no dot is found -> we are referencing the aux state
-  if (dotLoc == std::string::npos) {
-    if (machine == "cache") {
-      return "cache_entry." + param;
-    } else {
-      return "directory_entry." + param;
-    }
+    addCacheCPUEventFunctions();
+    addCacheRuleset();
+    addStartStateDefinition();
+    addNetworkRulesets();
+    return murphiModule;
   }
 
-  // get the obj and val from the reference i.e. GetM and src
-  std::string objRef = param.substr(0, dotLoc);
-  std::string valRef = param.substr(dotLoc + 1, param.length());
+private:
+  target::murphi::Module murphiModule;
+  mlir::ModuleOp moduleOp;
 
-  // if obj is directory -> must be referencing directory.ID
-  // then we reference the enum type 'directory'
-  if (objRef == "directory" && valRef == "ID") {
-    return "directory";
+  bool isCpuEvent(std::string action) {
+    return action == "load" || action == "store" || action == "evict";
   }
-  // must be referencing the message type
-  else {
-    return "inmsg." + valRef;
-  }
-}
 
-std::string generateMsgConstructorMurphi(mlir::murphi::MsgConstrOp &msgConstr,
-                                         std::string machine) {
-  // get the constrId i.e. Resp
-  std::string constrId = getStrAttrFromOp(msgConstr, "msgType");
-  // get the params array ["GetM", ..]
-  mlir::ArrayAttr paramsAttr =
-      msgConstr.getAttr("parameters").cast<mlir::ArrayAttr>();
-  std::vector<std::string> parameters;
-  for (int i = 0; i < (int)paramsAttr.size(); i++) {
-    std::string paramStr = getAttributeAsStr(paramsAttr[i]);
-    // MsgId
-    if (i == 0) {
-      // No work here - msgid should just be string
-      parameters.push_back(paramStr);
-    }
-    // src
-    else if (i == 1) {
-      // Could be an object ref or ID
-      if (paramStr == "ID") {
-        // hardcoded value !!! -- likely move this as default or something
-        parameters.push_back("m");
+  void addConstants() {
+    moduleOp.walk([&](mlir::murphi::ConstantOp constOp) {
+      int value = constOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
+      std::string id =
+          constOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+
+      target::murphi::Constant *constDecl =
+          new target::murphi::Constant(id, value);
+      murphiModule.addConstant(constDecl);
+
+      return mlir::WalkResult::advance();
+    });
+  }
+
+  void addBoilerplateConstants() {
+    // VAL_COUNT: 1;
+    murphiModule.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
+
+    // ADR_COUNT: 1;
+    murphiModule.addConstant(new target::murphi::Constant("ADR_COUNT", 1));
+
+    // O_NET_MAX: 12;
+    // U_NET_MAX: 12;
+    murphiModule.addConstant(new target::murphi::Constant("O_NET_MAX", 1));
+    murphiModule.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
+  }
+
+  void addAccessEnum() {
+    std::vector<std::string> enumList = {"load", "store", "none"};
+    murphiModule.addEnum(new target::murphi::Enum("Access", enumList));
+  }
+
+  void addMessageTypes() {
+    std::set<std::string> msgTypes;
+    moduleOp.walk([&](mlir::murphi::FunctionOp funOp) {
+      std::string action =
+          funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+      if (!isCpuEvent(action)) {
+        msgTypes.insert(action);
       }
-      // Some reference to another machine (cache or directory) i.e.
-      // GetM.src or directory.ID
+      return mlir::WalkResult::advance();
+    });
+    std::vector<std::string> msgTypesVec;
+    std::copy(msgTypes.begin(), msgTypes.end(),
+              std::back_inserter(msgTypesVec));
+
+    target::murphi::Enum *msgTypesEnum =
+        new target::murphi::Enum("MessageType", msgTypesVec);
+    murphiModule.addEnum(msgTypesEnum);
+  }
+
+  void addCacheDirectoryStates() {
+    std::set<std::string> cacheState;
+    std::set<std::string> dirState;
+    moduleOp.walk([&](mlir::murphi::FunctionOp funOp) {
+      std::string machine =
+          funOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+      std::string state =
+          funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+      if (machine == "cache") {
+        cacheState.insert(state);
+      }
+      if (machine == "directory") {
+        dirState.insert(state);
+      }
+      return mlir::WalkResult::advance();
+    });
+    // Convert Set to Vector
+    std::vector<std::string> cacheStateVec;
+    std::vector<std::string> dirStateVec;
+
+    std::copy(cacheState.begin(), cacheState.end(),
+              std::back_inserter(cacheStateVec));
+    std::copy(dirState.begin(), dirState.end(),
+              std::back_inserter(dirStateVec));
+
+    target::murphi::Enum *cacheStateDecl =
+        new target::murphi::Enum("cache_state", cacheStateVec);
+    target::murphi::Enum *dirStateDecl =
+        new target::murphi::Enum("directory_state", dirStateVec);
+    murphiModule.addEnum(cacheStateDecl);
+    murphiModule.addEnum(dirStateDecl);
+  }
+
+  void addAddressesAndCl() {
+    // Address: scalarset(ADR_COUNT);
+    murphiModule.addScalarset(
+        new target::murphi::Scalarset("Address", murphiModule.findReference("ADR_COUNT")));
+
+    // ClValue: 0..VAL_COUNT;
+    target::murphi::ValRange *clValue = new target::murphi::ValRange(
+        "ClValue", 0, murphiModule.findReference("VAL_COUNT"));
+    murphiModule.addValRange(clValue);
+  };
+
+  void addCacheDirectoryObjectDefinitions() {
+    // OBJSET_cache: scalarset(NrCaches);
+    target::murphi::Scalarset *objsetCache = new target::murphi::Scalarset(
+        "OBJSET_cache", murphiModule.findReference("nrCaches"));
+
+    // OBJSET_directory: enum{directory};
+    std::vector<std::string> directoryValues;
+    directoryValues.push_back("directory");
+    target::murphi::Enum *objsetDirectory =
+        new target::murphi::Enum("OBJSET_directory", directoryValues);
+
+    // Machines: union{OBJSET_cache, OBJSET_directory};
+    target::murphi::Union *machines =
+        new target::murphi::Union("Machines", objsetCache, objsetDirectory);
+
+    // Add Then to the Module
+    murphiModule.addScalarset(objsetCache);
+    murphiModule.addEnum(objsetDirectory);
+    murphiModule.addUnion(machines);
+  }
+
+  void addCacheDirectoryDefinitions() {
+    target::murphi::Record *cache = new target::murphi::Record("ENTRY_cache");
+    target::murphi::Record *directory =
+        new target::murphi::Record("ENTRY_directory");
+    moduleOp.walk([&](mlir::murphi::CacheDefOp cacheDef) {
+      auto fieldsAttr = cacheDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      auto typesAttr = cacheDef.getAttr("types").cast<mlir::ArrayAttr>();
+      for (int i = 0; i < (int)fieldsAttr.size(); i++) {
+        std::string fieldName =
+            fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeName =
+            typesAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeId;
+        if (fieldName == "State") {
+          typeId = "cache_state";
+        } else if (typeName == "Data") {
+          typeId = "ClValue";
+        } else if (typeName == "ID") {
+          typeId = "Machines";
+        }
+        // Push each element into the data structure
+        cache->addEntry(fieldName, murphiModule.findReference(typeId));
+      }
+      cache->addEntry("Perm", murphiModule.findReference("Access"));
+    });
+
+    moduleOp.walk([&](mlir::murphi::DirectoryDefOp directoryDef) {
+      auto fieldsAttr = directoryDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      auto typesAttr = directoryDef.getAttr("types").cast<mlir::ArrayAttr>();
+      for (int i = 0; i < (int)fieldsAttr.size(); i++) {
+        std::string fieldName =
+            fieldsAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeName =
+            typesAttr[i].cast<mlir::StringAttr>().getValue().str();
+        std::string typeId;
+        if (fieldName == "State") {
+          typeId = "directory_state";
+        } else if (typeName == "Data") {
+          typeId = "ClValue";
+        } else if (typeName == "ID") {
+          typeId = "Machines";
+        }
+        // Push each element into the data structure
+        directory->addEntry(fieldName, murphiModule.findReference(typeId));
+      }
+      directory->addEntry("Perm", murphiModule.findReference("Access"));
+    });
+    // Add Access
+
+    murphiModule.addRecord(cache);
+    murphiModule.addRecord(directory);
+  }
+
+  void addGloablMessageType() {
+    target::murphi::Record *msgDef = new target::murphi::Record("Message");
+    // All messages have default values
+    // Address of the CL
+    msgDef->addEntry("adr", murphiModule.findReference("Address"));
+    // Message Type
+    msgDef->addEntry("mtype", murphiModule.findReference("MessageType"));
+    // Msg Src
+    msgDef->addEntry("src", murphiModule.findReference("Machines"));
+    // Msg Dest
+    msgDef->addEntry("dst", murphiModule.findReference("Machines"));
+
+    // Now walk all the Msg Declaration operations and find
+    moduleOp.walk([&](mlir::murphi::MessageDefOp op) {
+      auto fieldIds = op.getAttr("fields").cast<mlir::ArrayAttr>();
+      auto typeIds = op.getAttr("types").cast<mlir::ArrayAttr>();
+
+      for (int i = 0; i < (int)fieldIds.size(); i++) {
+        std::string fid = fieldIds[i].cast<mlir::StringAttr>().getValue().str();
+        std::string tid = typeIds[i].cast<mlir::StringAttr>().getValue().str();
+        // TODO -- Make more sophisticated
+        if (tid == "Data") {
+          msgDef->addEntry(fid, murphiModule.findReference("ClValue"));
+        }
+      }
+    });
+
+    murphiModule.addRecord(msgDef);
+  }
+
+  void addBoilerplateTypes() {
+    target::murphi::Boilerplate *mcache =
+        new target::murphi::Boilerplate("MACH_cache", MACH_cache);
+    target::murphi::Boilerplate *mdir =
+        new target::murphi::Boilerplate("MACH_directory", MACH_directory);
+    target::murphi::Boilerplate *objcache =
+        new target::murphi::Boilerplate("OBJ_cache", OBJ_cache);
+    target::murphi::Boilerplate *objdir =
+        new target::murphi::Boilerplate("OBJ_directory", OBJ_directory);
+    target::murphi::Boilerplate *objorder =
+        new target::murphi::Boilerplate("OBJ_Ordered", OBJ_Ordered);
+    target::murphi::Boilerplate *ordercnt =
+        new target::murphi::Boilerplate("OBJ_Orderedcnt", OBJ_Orderedcnt);
+    target::murphi::Boilerplate *objunorder =
+        new target::murphi::Boilerplate("OBJ_Unordered", OBJ_Unordered);
+
+    murphiModule.addBoilerplate(mcache);
+    murphiModule.addBoilerplate(mdir);
+    murphiModule.addBoilerplate(objcache);
+    murphiModule.addBoilerplate(objdir);
+    murphiModule.addBoilerplate(objorder);
+    murphiModule.addBoilerplate(ordercnt);
+    murphiModule.addBoilerplate(objunorder);
+  }
+
+  void addVariableDeclarations() {
+    // ADD CACHE AND DIRECTORY VARIABLES
+    target::murphi::Variable *i_cache =
+        new target::murphi::Variable("i_cache", murphiModule.findReference("OBJ_cache"));
+    target::murphi::Variable *i_directory = new target::murphi::Variable(
+        "i_directory", murphiModule.findReference("OBJ_directory"));
+    murphiModule.addVariable(i_cache);
+    murphiModule.addVariable(i_directory);
+
+    // find network declarations
+    moduleOp.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
+      std::string netId =
+          netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+      std::string netOrder =
+          netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+      if (netOrder == "Ordered") {
+        // if ordered we need to generate the network and the count
+        target::murphi::Variable *netVar =
+            new target::murphi::Variable(netId, murphiModule.findReference("OBJ_Ordered"));
+        target::murphi::Variable *netCount = new target::murphi::Variable(
+            netId, murphiModule.findReference("OBJ_Orderedcnt"));
+        murphiModule.addVariable(netVar);
+        murphiModule.addVariable(netCount);
+
+      } else {
+        target::murphi::Variable *netVar = new target::murphi::Variable(
+            netId, murphiModule.findReference("OBJ_Unordered"));
+        murphiModule.addVariable(netVar);
+      }
+    });
+  }
+
+  void addMessageFactories() {
+    target::murphi::LanguageConstruct *messageDeclaration =
+        murphiModule.findReference("Message");
+    moduleOp.walk([&](mlir::murphi::MessageDefOp msgDef) {
+      std::string msgId =
+          msgDef.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+      target::murphi::MessageContructor *msgConstr =
+          new target::murphi::MessageContructor(msgId, messageDeclaration);
+      auto fieldsAttr = msgDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      // auto typesAttr = msgDef.getAttr("types").cast<mlir::ArrayAttr>();
+      for (int i = 0; i < (int)fieldsAttr.size(); i++) {
+        msgConstr->addExtraField(
+            fieldsAttr[i].cast<mlir::StringAttr>().getValue().str());
+      }
+      // ADD MSG CONSTROCTOR TO MODULE
+      murphiModule.addMessageConstructor(msgConstr);
+      return mlir::WalkResult::advance();
+    });
+  }
+
+  void addSendFunctions() {
+    moduleOp.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
+      std::string netId =
+          netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+      std::string netOrder =
+          netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+      target::murphi::NetworkOrder order =
+          netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered
+                                : target::murphi::NetworkOrder::Unordered;
+      target::murphi::SendFunction *sendFunc =
+          new target::murphi::SendFunction(netId, order);
+      murphiModule.addSendFunction(sendFunc);
+    });
+  }
+
+  std::string interleaveComma(std::vector<std::string> values) {
+    std::string interleaved;
+    for (std::string v : values) {
+      if (v == values.front()) {
+        interleaved += v;
+      } else {
+        interleaved += ", " + v;
+      }
+    }
+    return interleaved;
+  }
+
+  std::string getAttributeAsStr(const mlir::Attribute &a) {
+    return a.cast<mlir::StringAttr>().getValue().str();
+  }
+
+  mlir::ArrayAttr getArrayAttr(mlir::Operation *op, std::string attrId) {
+    return op->getAttr(attrId).cast<mlir::ArrayAttr>();
+  }
+
+  std::string getStrAttrFromOp(mlir::Operation *a, std::string attrId) {
+    return a->getAttr(attrId).cast<mlir::StringAttr>().getValue().str();
+  }
+
+  // std::vector<std::string> getMachineAuxStateReferences(std::string mach) {
+  //   std::vector<std::string> auxStates;
+  //   if (mach == "cache") {
+
+  //   } else {
+  //   }
+  // }
+
+  std::string processObjectReference(std::string param, std::string machine) {
+    // find (if exists) the dot
+    std::size_t dotLoc = param.find('.');
+
+    // if no dot then we are either referencing a constant or something in the
+    // aux state
+    if (dotLoc == std::string::npos) {
+      // TODO --- Fix
+      if (machine == "cache") {
+        return "cache_entry." + param;
+      } else {
+        return "directory_entry." + param;
+      }
+      return param;
+    }
+
+    // get the obj and val from the reference i.e. GetM and src
+    std::string objRef = param.substr(0, dotLoc);
+    std::string valRef = param.substr(dotLoc + 1, param.length());
+
+    // if obj is directory -> must be referencing directory.ID
+    // then we reference the enum type 'directory'
+    if (objRef == "directory" && valRef == "ID") {
+      return "directory";
+    }
+    // must be referencing the message type
+    else {
+      return "inmsg." + valRef;
+    }
+  }
+
+  std::string generateMsgConstructorMurphi(mlir::murphi::MsgConstrOp &msgConstr,
+                                           std::string machine) {
+    // get the constrId i.e. Resp
+    std::string constrId = getStrAttrFromOp(msgConstr, "msgType");
+    // get the params array ["GetM", ..]
+    mlir::ArrayAttr paramsAttr =
+        msgConstr.getAttr("parameters").cast<mlir::ArrayAttr>();
+    std::vector<std::string> parameters;
+    for (int i = 0; i < (int)paramsAttr.size(); i++) {
+      std::string paramStr = getAttributeAsStr(paramsAttr[i]);
+      // MsgId
+      if (i == 0) {
+        // No work here - msgid should just be string
+        parameters.push_back(paramStr);
+      }
+      // src
+      else if (i == 1) {
+        // Could be an object ref or ID
+        if (paramStr == "ID") {
+          // hardcoded value !!! -- likely move this as default or something
+          parameters.push_back("m");
+        }
+        // Some reference to another machine (cache or directory) i.e.
+        // GetM.src or directory.ID
+        else {
+          // prepend with mach_entry
+          parameters.push_back(processObjectReference(paramStr, machine));
+        }
+      }
+      // dst
+      else if (i == 2) {
+        parameters.push_back(processObjectReference(paramStr, machine));
+      }
+      // other fields like owner ...
       else {
         parameters.push_back(processObjectReference(paramStr, machine));
       }
     }
-    // dst
-    else if (i == 2) {
-      parameters.push_back(processObjectReference(paramStr, machine));
-    }
-    // other fields like owner ...
-    else {
-      parameters.push_back(processObjectReference(paramStr, machine));
-    }
+    // std::cout << interleaveComma(parameters) << std::endl;
+    return message_constructor(constrId, interleaveComma(parameters));
   }
-  // std::cout << interleaveComma(parameters) << std::endl;
-  return message_constructor(constrId, interleaveComma(parameters));
-}
 
-target::murphi::MessageHandler
-getMessageHandler(mlir::ModuleOp op, mlir::murphi::FunctionOp handleFunc) {
-  std::string action = getStrAttrFromOp(handleFunc, "action");
-  std::string machine = getStrAttrFromOp(handleFunc, "machine");
+  target::murphi::MessageHandler
+  getMessageHandler(mlir::murphi::FunctionOp handleFunc) {
+    std::string action = getStrAttrFromOp(handleFunc, "action");
+    std::string machine = getStrAttrFromOp(handleFunc, "machine");
 
-  // generate the message handler
-  target::murphi::MessageHandler msgHandler(action);
+    // generate the message handler
+    target::murphi::MessageHandler msgHandler(action);
 
-  // iterate over all operations in the entry block
-  for (mlir::Operation &nestedOp :
-       handleFunc.getRegion().getBlocks().front().getOperations()) {
-    // clone the operation
-    mlir::Operation *ref = &nestedOp;
+    // iterate over all operations in the entry block
+    for (mlir::Operation &nestedOp :
+         handleFunc.getRegion().getBlocks().front().getOperations()) {
+      // clone the operation
+      mlir::Operation *ref = &nestedOp;
 
-    // Generate the output for a MsgConstructor Operation
-    if (mlir::murphi::MsgConstrOp msgConstr =
-            mlir::dyn_cast<mlir::murphi::MsgConstrOp>(ref)) {
-      msgHandler.add_operation_text(
-          generateMsgConstructorMurphi(msgConstr, machine));
-    }
+      // Generate the output for a MsgConstructor Operation
+      if (mlir::murphi::MsgConstrOp msgConstr =
+              mlir::dyn_cast<mlir::murphi::MsgConstrOp>(ref)) {
+        msgHandler.add_operation_text(
+            generateMsgConstructorMurphi(msgConstr, machine));
+      }
 
-    // Generate the output for a SendOp Operations
-    if (mlir::murphi::SendOp sendOp =
-            mlir::dyn_cast<mlir::murphi::SendOp>(ref)) {
-      std::string netId = getStrAttrFromOp(sendOp, "netId");
-      msgHandler.add_operation_text(send_message(netId));
-    }
+      // Generate the output for a SendOp Operations
+      if (mlir::murphi::SendOp sendOp =
+              mlir::dyn_cast<mlir::murphi::SendOp>(ref)) {
+        std::string netId = getStrAttrFromOp(sendOp, "netId");
+        msgHandler.add_operation_text(send_message(netId));
+      }
 
-    // Generate the output for a set operation
-    if (mlir::murphi::SetOp setOp = mlir::dyn_cast<mlir::murphi::SetOp>(ref)) {
-      // setOp.dump();
-    }
-  }
-  return msgHandler;
-}
-
-target::murphi::StateHandler
-getStateHandler(std::string stateId, std::string machineId, mlir::ModuleOp op) {
-  target::murphi::StateHandler sh(stateId);
-  op.walk([&](mlir::murphi::FunctionOp funOp) {
-    std::string machine =
-        funOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
-    std::string action =
-        funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    std::string cur_state =
-        funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-    // Filter over all possible messages that can be received
-    if (!isCpuEvent(action) && machine == machineId && cur_state == stateId) {
-      // For each such message -- possibly zero -- create a message handler
-      target::murphi::MessageHandler msgHandler = getMessageHandler(op, funOp);
-      // target::murphi::MessageHandler msgHandler(action);
-      sh.addMessageHandler(msgHandler);
-    }
-  });
-  return sh;
-}
-
-target::murphi::MachineHandlerFunction
-getMachineHandleFunction(target::murphi::Module &m, mlir::ModuleOp op,
-                         std::string machId) {
-  // Get the Cache State Enum
-  target::murphi::MachineHandlerFunction handFunc(machId);
-  target::murphi::Enum *states =
-      dynamic_cast<target::murphi::Enum *>(m.findReference(machId + "_state"));
-  for (auto state : states->getElements()) {
-    // Generate a State Handler for each state
-    target::murphi::StateHandler sh = getStateHandler(state, machId, op);
-    handFunc.addStateHandler(sh);
-  }
-  return handFunc;
-}
-
-void addCacheFunction(target::murphi::Module &m, mlir::ModuleOp op) {
-  target::murphi::MachineHandlerFunction funcCache =
-      getMachineHandleFunction(m, op, "cache");
-  m.addMachineHandleFunction(funcCache);
-}
-
-void addDirectoryFunction(target::murphi::Module &m, mlir::ModuleOp op) {
-  target::murphi::MachineHandlerFunction funcDir =
-      getMachineHandleFunction(m, op, "directory");
-  m.addMachineHandleFunction(funcDir);
-}
-
-void addStartStateDefinition(target::murphi::Module &m, mlir::ModuleOp op) {
-  // Create a StartState Object
-  target::murphi::StartState ss;
-
-  // Body of the start state
-  std::string body;
-  // Add Cache and Directory Startstate Definitions
-  op.walk([&](mlir::murphi::CacheDefOp cacheDefOp) {
-    // String of operations
-    std::string operations;
-
-    // get the Fiels and Types arrays
-    mlir::ArrayAttr fields =
-        cacheDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
-    mlir::ArrayAttr types = cacheDefOp.getAttr("types").cast<mlir::ArrayAttr>();
-    for (int i = 0; i < (int)fields.size(); i++) {
-      std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
-      std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
-
-      // Hardcoded CL !!!!!
-      if (field == "State") {
-        std::string initialState = "cache_" + type;
-        operations += start_state_assignment("cache", "State", initialState);
-      } else if (field == "cl") {
-        operations += start_state_assignment("cache", "cl", "0");
+      // Generate the output for a set operation
+      if (mlir::murphi::SetOp setOp =
+              mlir::dyn_cast<mlir::murphi::SetOp>(ref)) {
+        std::string id = getStrAttrFromOp(setOp, "id");
+        std::string value = getStrAttrFromOp(setOp, "value");
+        msgHandler.add_operation_text(assign_value(machine, id, value));
+        // setOp.dump();
       }
     }
-    // Add permission initially to None
-    operations += start_state_assignment("cache", "Perm", "none");
+    return msgHandler;
+  }
 
-    // Add the Cache State State Def
-    body += mach_start_state("cache", operations);
-
-    return mlir::WalkResult::advance();
-  });
-
-  op.walk([&](mlir::murphi::DirectoryDefOp dirDefOp) {
-    std::string operations;
-    std::string machId = "directory";
-
-    mlir::ArrayAttr fields = dirDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
-    mlir::ArrayAttr types = dirDefOp.getAttr("types").cast<mlir::ArrayAttr>();
-
-    for (int i = 0; i < (int)fields.size(); i++) {
-      std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
-      std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
-
-      if (field == "State") {
-        std::string initialState = machId + "_" + type;
-        operations += start_state_assignment(machId, "State", initialState);
-      } else if (field == "cl") {
-        operations += start_state_assignment(machId, "cl", "0");
+  target::murphi::StateHandler getStateHandler(std::string stateId,
+                                               std::string machineId) {
+    target::murphi::StateHandler sh(stateId);
+    moduleOp.walk([&](mlir::murphi::FunctionOp funOp) {
+      std::string machine =
+          funOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+      std::string action =
+          funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+      std::string cur_state =
+          funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+      // Filter over all possible messages that can be received
+      if (!isCpuEvent(action) && machine == machineId && cur_state == stateId) {
+        // For each such message -- possibly zero -- create a message handler
+        target::murphi::MessageHandler msgHandler =
+            getMessageHandler(funOp);
+        // target::murphi::MessageHandler msgHandler(action);
+        sh.addMessageHandler(msgHandler);
       }
+    });
+    return sh;
+  }
+
+  target::murphi::MachineHandlerFunction
+  getMachineHandleFunction(std::string machId) {
+    // Get the Cache State Enum
+    target::murphi::MachineHandlerFunction handFunc(machId);
+    target::murphi::Enum *states = dynamic_cast<target::murphi::Enum *>(
+        murphiModule.findReference(machId + "_state"));
+    for (auto state : states->getElements()) {
+      // Generate a State Handler for each state
+      target::murphi::StateHandler sh = getStateHandler(state, machId);
+      handFunc.addStateHandler(sh);
     }
-    // Add permission initially to None
-    operations += start_state_assignment(machId, "Perm", "none");
+    return handFunc;
+  }
 
-    // Add the directory definition start state
-    body += mach_start_state(machId, operations);
+  void addCacheFunction() {
+    target::murphi::MachineHandlerFunction funcCache =
+        getMachineHandleFunction("cache");
+    murphiModule.addMachineHandleFunction(funcCache);
+  }
 
-    return mlir::WalkResult::advance();
-  });
+  void addDirectoryFunction() {
+    target::murphi::MachineHandlerFunction funcDir =
+        getMachineHandleFunction("directory");
+    murphiModule.addMachineHandleFunction(funcDir);
+  }
 
-  // Add the network definitions
-  op.walk([&](mlir::murphi::NetworkDeclOp netDeclOp) {
-    std::string ordering =
-        netDeclOp.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
-    std::string netId =
-        netDeclOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    if (ordering == "Ordered") {
-      body += start_state_ordered_network(netId);
-    } else {
-      body += start_state_unordered_network(netId);
-    }
-    return mlir::WalkResult::advance();
-  });
+  void addStartStateDefinition() {
+    // Create a StartState Object
+    target::murphi::StartState ss;
 
-  // Add the text to SS
-  ss.addText(start_state_defintion(body));
-  m.addStartState(ss);
+    // Body of the start state
+    std::string body;
+    // Add Cache and Directory Startstate Definitions
+    moduleOp.walk([&](mlir::murphi::CacheDefOp cacheDefOp) {
+      // String of operations
+      std::string operations;
+
+      // get the Fiels and Types arrays
+      mlir::ArrayAttr fields =
+          cacheDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
+      mlir::ArrayAttr types =
+          cacheDefOp.getAttr("types").cast<mlir::ArrayAttr>();
+      for (int i = 0; i < (int)fields.size(); i++) {
+        std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
+        std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
+
+        // Hardcoded CL !!!!!
+        if (field == "State") {
+          std::string initialState = "cache_" + type;
+          operations += start_state_assignment("cache", "State", initialState);
+        } else if (field == "cl") {
+          operations += start_state_assignment("cache", "cl", "0");
+        }
+      }
+      // Add permission initially to None
+      operations += start_state_assignment("cache", "Perm", "none");
+
+      // Add the Cache State State Def
+      body += mach_start_state("cache", operations);
+
+      return mlir::WalkResult::advance();
+    });
+
+    moduleOp.walk([&](mlir::murphi::DirectoryDefOp dirDefOp) {
+      std::string operations;
+      std::string machId = "directory";
+
+      mlir::ArrayAttr fields =
+          dirDefOp.getAttr("fields").cast<mlir::ArrayAttr>();
+      mlir::ArrayAttr types = dirDefOp.getAttr("types").cast<mlir::ArrayAttr>();
+
+      for (int i = 0; i < (int)fields.size(); i++) {
+        std::string field = fields[i].cast<mlir::StringAttr>().getValue().str();
+        std::string type = types[i].cast<mlir::StringAttr>().getValue().str();
+
+        if (field == "State") {
+          std::string initialState = machId + "_" + type;
+          operations += start_state_assignment(machId, "State", initialState);
+        } else if (field == "cl") {
+          operations += start_state_assignment(machId, "cl", "0");
+        }
+      }
+      // Add permission initially to None
+      operations += start_state_assignment(machId, "Perm", "none");
+
+      // Add the directory definition start state
+      body += mach_start_state(machId, operations);
+
+      return mlir::WalkResult::advance();
+    });
+
+    // Add the network definitions
+    moduleOp.walk([&](mlir::murphi::NetworkDeclOp netDeclOp) {
+      std::string ordering = netDeclOp.getAttr("ordering")
+                                 .cast<mlir::StringAttr>()
+                                 .getValue()
+                                 .str();
+      std::string netId =
+          netDeclOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+      if (ordering == "Ordered") {
+        body += start_state_ordered_network(netId);
+      } else {
+        body += start_state_unordered_network(netId);
+      }
+      return mlir::WalkResult::advance();
+    });
+
+    // Add the text to SS
+    ss.addText(start_state_defintion(body));
+    murphiModule.addStartState(ss);
+  };
+
+  void addCacheCPUEventFunctions() {
+    moduleOp.walk([&](mlir::murphi::FunctionOp funcOp) {
+      std::string action =
+          funcOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+      std::string machine =
+          funcOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+      if (isCpuEvent(action) && machine == "cache") {
+        std::string curState = funcOp.getAttr("cur_state")
+                                   .cast<mlir::StringAttr>()
+                                   .getValue()
+                                   .str();
+        target::murphi::CacheCPUEventFunction *cacheFunc =
+            new target::murphi::CacheCPUEventFunction(curState, action);
+        // Walk the nested Operations in the function and generate Murphi for
+        // them
+        funcOp.getRegion().walk([&](mlir::Operation *anyop) {
+
+        });
+        murphiModule.addCacheCPUEventFunction(cacheFunc);
+      }
+      return mlir::WalkResult::advance();
+    });
+  }
+
+  void addCacheRuleset() {
+    target::murphi::CacheRuleset c_ruleset;
+    moduleOp.walk([&](mlir::murphi::FunctionOp funOp) {
+      std::string action =
+          funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+      if (action == "load" || action == "store" || action == "evict") {
+        std::string curState = funOp.getAttr("cur_state")
+                                   .cast<mlir::StringAttr>()
+                                   .getValue()
+                                   .str();
+        target::murphi::CacheRule cr =
+            target::murphi::CacheRule(curState, action);
+        c_ruleset.addRule(cr);
+      }
+    });
+    murphiModule.setCacheRuleset(c_ruleset);
+  }
+
+  void addNetworkRulesets() {
+    moduleOp.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
+      std::string netId =
+          netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+      std::string netOrder =
+          netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
+      target::murphi::NetworkOrder order =
+          netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered
+                                : target::murphi::NetworkOrder::Unordered;
+
+      target::murphi::NetworkRuleset netRS(netId, order);
+      murphiModule.addNetworkRuleset(netRS);
+      return mlir::WalkResult::advance();
+    });
+  }
 };
 
-void addCacheCPUEventFunctions(target::murphi::Module &m, mlir::ModuleOp op) {
-  op.walk([&](mlir::murphi::FunctionOp funcOp) {
-    std::string action =
-        funcOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    std::string machine =
-        funcOp.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
-    if (isCpuEvent(action) && machine == "cache") {
-      std::string curState =
-          funcOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-      target::murphi::CacheCPUEventFunction *cacheFunc =
-          new target::murphi::CacheCPUEventFunction(curState, action);
-      // Walk the nested Operations in the function and generate Murphi for
-      // them
-      funcOp.getRegion().walk([&](mlir::Operation *anyop) {
-
-      });
-      m.addCacheCPUEventFunction(cacheFunc);
-    }
-    return mlir::WalkResult::advance();
-  });
-}
-
-void addCacheRuleset(target::murphi::Module &m, mlir::ModuleOp op) {
-  target::murphi::CacheRuleset c_ruleset;
-  op.walk([&](mlir::murphi::FunctionOp funOp) {
-    std::string action =
-        funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
-    if (action == "load" || action == "store" || action == "evict") {
-      std::string curState =
-          funOp.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-      target::murphi::CacheRule cr =
-          target::murphi::CacheRule(curState, action);
-      c_ruleset.addRule(cr);
-    }
-  });
-  m.setCacheRuleset(c_ruleset);
-}
-
-void addNetworkRulesets(target::murphi::Module &m, mlir::ModuleOp op) {
-  op.walk([&](mlir::murphi::NetworkDeclOp netDecl) {
-    std::string netId =
-        netDecl.getAttr("id").cast<mlir::StringAttr>().getValue().str();
-    std::string netOrder =
-        netDecl.getAttr("ordering").cast<mlir::StringAttr>().getValue().str();
-    target::murphi::NetworkOrder order =
-        netOrder == "Ordered" ? target::murphi::NetworkOrder::Ordered
-                              : target::murphi::NetworkOrder::Unordered;
-
-    target::murphi::NetworkRuleset netRS(netId, order);
-    m.addNetworkRuleset(netRS);
-    return mlir::WalkResult::advance();
-  });
-}
-
-target::murphi::Module createModule(mlir::ModuleOp op,
-                                    mlir::raw_ostream &output) {
-  target::murphi::Module m;
-
-  addConstants(m, op);
-  addBoilerplateConstants(m);
-  addAccessEnum(m);
-  addMessageTypes(m, op);
-  addCacheDirectoryStates(m, op);
-
-  addAddressesAndCl(m);
-  addCacheDirectoryObjectDefinitions(m);
-  addCacheDirectoryDefinitions(m, op);
-  addGloablMessageType(m, op);
-  addBoilerplateTypes(m);
-  addVariableDeclarations(m, op);
-
-  addMessageFactories(m, op);
-  addSendFunctions(m, op);
-  addCacheFunction(m, op);
-  addDirectoryFunction(m, op);
-
-  addCacheCPUEventFunctions(m, op);
-  addCacheRuleset(m, op);
-  addStartStateDefinition(m, op);
-  addNetworkRulesets(m, op);
-  return m;
-}
+} // namespace murphiGenImpl
 
 namespace mlir {
 void registerToMurphiTranslation() {
   mlir::TranslateFromMLIRRegistration registration(
       "mlir-to-murphi",
       [](mlir::ModuleOp op, mlir::raw_ostream &output) {
-        auto module = createModule(op, output);
-        module.print(output);
+        auto murphiGen = murphiGenImpl::MurphiGen(op);
+        auto &murphiModule = murphiGen.createModule();
+        murphiModule.print(output);
         return mlir::success();
       },
       [](mlir::DialectRegistry &registry) {

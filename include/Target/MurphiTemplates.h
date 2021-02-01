@@ -42,3 +42,4 @@ std::string write_serialization();
 // operations
 std::string message_constructor(std::string constrId, std::string parameters);
 std::string send_message(std::string netId);
+std::string assign_value(std::string machId, std::string id, std::string value);

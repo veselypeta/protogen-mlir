@@ -83,12 +83,14 @@ module {
     "murphi.function"()({
         %msg = "murphi.msg_constr"(){msgType="Resp", parameters=["GetM_Ack_D", "ID", "GetM.src", "cl"]} : () -> i64
         "murphi.send"(%msg) {netId="resp"} : (i64) -> ()
+        "murphi.set"(){id="owner", value="GetM.src"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="directory", cur_state="directory_I", action="GetM"} : () -> ()
 
     "murphi.function"()({
         %msg = "murphi.msg_constr"(){msgType="Request", parameters=["Fwd_GetM", "GetM.src", "owner"]} : () -> i64
         "murphi.send"(%msg) {netId="fwd"} : (i64) -> ()
+        "murphi.set"(){id="owner", value="GetM.src"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="directory", cur_state="directory_M", action="GetM"} : () -> ()
 
