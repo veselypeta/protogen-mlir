@@ -43,3 +43,4 @@ std::string write_serialization();
 std::string message_constructor(std::string constrId, std::string parameters);
 std::string send_message(std::string netId);
 std::string assign_value(std::string machId, std::string id, std::string value);
+std::string if_statement(std::string lhs, std::string condition, std::string rhs, std::string nestedOps);

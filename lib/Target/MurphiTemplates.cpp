@@ -255,6 +255,14 @@ std::string aux_state_assignment = "\
 {0}_entry.{1} := {2};\n\
 ";
 
+std::string if_statement_templates = "\
+if {0} {1} {2} then \n\
+\n\
+{3}\n\
+\n\
+endif\n\
+";
+
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
 }
@@ -360,4 +368,8 @@ std::string send_message(std::string netId){
 
 std::string assign_value(std::string machId, std::string id, std::string value){
   return fmt::format(aux_state_assignment, machId, id, value);
+}
+
+std::string if_statement(std::string lhs, std::string condition, std::string rhs, std::string nestedOps){
+  return fmt::format(if_statement_templates, lhs, condition, rhs, nestedOps);
 }
