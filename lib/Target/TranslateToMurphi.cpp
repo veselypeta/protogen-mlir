@@ -517,17 +517,19 @@ private:
     }
 
     // Generate the Output for an If op
-    if(mlir::murphi::IfOp ifOp = mlir::dyn_cast<mlir::murphi::IfOp>(ref)) {
+    if (mlir::murphi::IfOp ifOp = mlir::dyn_cast<mlir::murphi::IfOp>(ref)) {
       std::string nestedOps;
       std::string lhs = getStrAttrFromOp(ifOp, "lhs");
       std::string comparison = getStrAttrFromOp(ifOp, "comparison");
       std::string rhs = getStrAttrFromOp(ifOp, "rhs");
       // Loop through nested operations and recurse
-      for(mlir::Operation &nestedOp : ifOp.getRegion().getBlocks().front().getOperations()){
+      for (mlir::Operation &nestedOp :
+           ifOp.getRegion().getBlocks().front().getOperations()) {
         nestedOps += generateOperationMurphi(nestedOp, machine);
       }
       // process lhs/rhs and object references
-      return if_statement( processObjectReference(lhs, machine), comparison, processObjectReference(rhs, machine), nestedOps);
+      return if_statement(processObjectReference(lhs, machine), comparison,
+                          processObjectReference(rhs, machine), nestedOps);
     }
     return "";
   }
