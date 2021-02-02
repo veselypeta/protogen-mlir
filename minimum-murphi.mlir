@@ -8,7 +8,7 @@ module {
 
     "murphi.message_definition"() {id="Request", fields=[], types=[]} : () -> ()
     "murphi.message_definition"() {id="Ack", fields=[], types=[]} : () -> ()
-    "murphi.message_definition"() {id="Response", fields=["cl"], types=["Data"]} : () -> ()
+    "murphi.message_definition"() {id="Resp", fields=["cl"], types=["Data"]} : () -> ()
     "murphi.message_definition"() {id="RespAck", fields=["cl"], types=["Data"]} : () -> ()
 
     "murphi.network_decl"() {ordering ="Ordered", id="fwd"} : () -> ()

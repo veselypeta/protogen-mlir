@@ -176,7 +176,7 @@ target::murphi::Module::findReference(std::string id) {
 
 // ------- MurphiConstantDeclaration ------- //
 void target::murphi::Constant::print(mlir::raw_ostream &stream) {
-  stream << "\t" << getDefiningId() << " : " << value << "\n";
+  stream << "\t" << getDefiningId() << " : " << value << ";\n";
 }
 
 // ------- MurphiEnumDefinition ------- //
@@ -283,7 +283,11 @@ void target::murphi::SendFunction::print(mlir::raw_ostream &stream) {
 
 // ------- Cache CPU Event Functions ------- //
 void target::murphi::CacheCPUEventFunction::print(mlir::raw_ostream &stream) {
-  stream << cache_load_store_proc(cacheState, cpuEvent, "\n-- INSERT BODY OF FUNCTION HERE --\n");
+  stream << cache_load_store_proc(cacheState, cpuEvent, nestedOperations);
+}
+
+void target::murphi::CacheCPUEventFunction::addNestedOp(std::string op){
+  nestedOperations += op;
 }
 
 // ------- Cache Rule ------- //
@@ -345,7 +349,7 @@ std::string target::murphi::StateHandler::to_string(){
   for(auto mh : msgHandlers){
     body += mh.to_string();
   }
-  return case_statement(stateId, switch_statement_else_false("inmsg.id", body));
+  return case_statement(stateId, switch_statement_else_false("inmsg.mtype", body));
 }
 
 void target::murphi::StateHandler::addMessageHandler(target::murphi::MessageHandler mh){

@@ -128,8 +128,10 @@ std::string cache_load_store_proc_template = "\
 procedure SEND_{0}_{1}(adr:Address; m:OBJSET_cache);\n\
 var msg: Message;\n\
 begin\n\
-  alias cle: i_cache[m].CL[adr] do\n\
-{2} \n\
+  alias cache_entry: i_cache[m].CL[adr] do\n\
+\n\
+{2}\
+\n\
 endalias;\n\
 end;\n\
 \n\
@@ -150,13 +152,13 @@ end;\n\
 ";
 
 std::string switch_statement_template = "\
-switch {0}:\n\
+switch {0}\n\
 {1}\n\
 endswitch;\n\
 ";
 
 std::string switch_statement_else_false_template = "\
-switch {0}:\n\
+switch {0}\n\
 {1}\n\
   else return false;\n\
 endswitch;\n\
@@ -184,8 +186,8 @@ std::string cache_rule_template = "\
 \n\
 rule \"{0}_{1}\"\n\
     cle.State = {0} \n\
-    & \n\
-    cl_mut[adr] = false\n\
+    -- & \n\
+    -- cl_mut[adr] = false\n\
         ==>\n\
     SEND_{0}_{1}(adr, m);\n\
 endrule;\n\
@@ -212,7 +214,7 @@ std::string start_state_template = "\
 -- Setup Start States\n\
 startstate\n\
 \n\
-{0}\n\
+{0}\
 \n\
 endstartstate;\n\
 ";
@@ -222,7 +224,7 @@ std::string mach_start_state_def_template = "\
     for i:OBJSET_{0} do\n\
         for a:Address do\n\
 \n\
-{1}\n\
+{1}\
 \n\
         endfor;\n\
     endfor;\n\
@@ -258,7 +260,7 @@ std::string aux_state_assignment = "\
 std::string if_statement_templates = "\
 if {0} {1} {2} then \n\
 \n\
-{3}\n\
+{3}\
 \n\
 endif\n\
 ";

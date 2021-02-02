@@ -72,8 +72,8 @@ private:
 
     // O_NET_MAX: 12;
     // U_NET_MAX: 12;
-    murphiModule.addConstant(new target::murphi::Constant("O_NET_MAX", 1));
-    murphiModule.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
+    murphiModule.addConstant(new target::murphi::Constant("O_NET_MAX", 12));
+    murphiModule.addConstant(new target::murphi::Constant("U_NET_MAX", 12));
   }
 
   void addAccessEnum() {
@@ -293,7 +293,7 @@ private:
         target::murphi::Variable *netVar = new target::murphi::Variable(
             netId, murphiModule.findReference("OBJ_Ordered"));
         target::murphi::Variable *netCount = new target::murphi::Variable(
-            netId, murphiModule.findReference("OBJ_Orderedcnt"));
+            "cnt_" + netId, murphiModule.findReference("OBJ_Orderedcnt"));
         murphiModule.addVariable(netVar);
         murphiModule.addVariable(netCount);
 
@@ -521,6 +521,8 @@ private:
       std::string nestedOps;
       std::string lhs = getStrAttrFromOp(ifOp, "lhs");
       std::string comparison = getStrAttrFromOp(ifOp, "comparison");
+      // TODO!!!! -- Hack for now -- replace == with =
+      comparison = comparison == "==" ? "=" : comparison;
       std::string rhs = getStrAttrFromOp(ifOp, "rhs");
       // Loop through nested operations and recurse
       for (mlir::Operation &nestedOp :
@@ -698,9 +700,10 @@ private:
             new target::murphi::CacheCPUEventFunction(curState, action);
         // Walk the nested Operations in the function and generate Murphi for
         // them
-        funcOp.getRegion().walk([&](mlir::Operation *anyop) {
-
-        });
+        for(mlir::Operation &nestedOp : funcOp.getRegion().getBlocks().front().getOperations()){
+          cacheFunc->addNestedOp(generateOperationMurphi(nestedOp, machine));
+        }
+        
         murphiModule.addCacheCPUEventFunction(cacheFunc);
       }
       return mlir::WalkResult::advance();

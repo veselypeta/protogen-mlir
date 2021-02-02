@@ -220,11 +220,12 @@ public:
   virtual std::string getDefiningId() {
     return "SEND_" + cacheState + "_" + cpuEvent;
   }
+  void addNestedOp(std::string op);
 
 private:
   std::string cacheState;
   std::string cpuEvent;
-  // POSSIBLY A SET OF OPERATIONS.....
+  std::string nestedOperations;
 };
 
 class CacheRule {
