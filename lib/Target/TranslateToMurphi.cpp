@@ -13,7 +13,8 @@
 namespace murphiGenImpl {
 class MurphiGen {
 public:
-  MurphiGen(mlir::ModuleOp moduleOp) : moduleOp{moduleOp} {}
+  MurphiGen(mlir::ModuleOp moduleOp, bool concurrent = false)
+      : moduleOp{moduleOp}, concurrent{concurrent} {}
   // We return a reference to prevent destructor being called
   target::murphi::Module &createModule() {
     addConstants();
@@ -30,6 +31,8 @@ public:
     addVariableDeclarations();
 
     addMessageFactories();
+    if (!concurrent)
+      addClMutexHelperFunctions();
     addSendFunctions();
     addCacheFunction();
     addDirectoryFunction();
@@ -44,6 +47,7 @@ public:
 private:
   target::murphi::Module murphiModule;
   mlir::ModuleOp moduleOp;
+  bool concurrent = false;
 
   bool isCpuEvent(std::string action) {
     return action == "load" || action == "store" || action == "evict";
@@ -271,6 +275,13 @@ private:
     murphiModule.addBoilerplate(objorder);
     murphiModule.addBoilerplate(ordercnt);
     murphiModule.addBoilerplate(objunorder);
+
+    // add CL Mutex if not a concurrent protocol
+    if (!concurrent) {
+      target::murphi::Boilerplate *clMutex =
+          new target::murphi::Boilerplate("CL_MUTEX", CL_MUTEX_template);
+      murphiModule.addBoilerplate(clMutex);
+    }
   }
 
   void addVariableDeclarations() {
@@ -303,6 +314,13 @@ private:
         murphiModule.addVariable(netVar);
       }
     });
+
+    // add cl_mut if required
+    if (!concurrent) {
+      target::murphi::Variable *cl_mut = new target::murphi::Variable(
+          "cl_mut", murphiModule.findReference("CL_MUTEX"));
+      murphiModule.addVariable(cl_mut);
+    }
   }
 
   void addMessageFactories() {
@@ -323,6 +341,17 @@ private:
       murphiModule.addMessageConstructor(msgConstr);
       return mlir::WalkResult::advance();
     });
+  }
+
+  void addClMutexHelperFunctions() {
+    target::murphi::MutexHelperFunction *acqMutex =
+        new target::murphi::MutexHelperFunction(
+            "Aquire_Mutex", true, murphiModule.findReference("cl_mut"));
+    target::murphi::MutexHelperFunction *rlsMutex =
+        new target::murphi::MutexHelperFunction(
+            "Release_Mutex", false, murphiModule.findReference("cl_mut"));
+    murphiModule.addMutexHelperFunction(acqMutex);
+    murphiModule.addMutexHelperFunction(rlsMutex);
   }
 
   void addSendFunctions() {
@@ -680,6 +709,11 @@ private:
       return mlir::WalkResult::advance();
     });
 
+    // initialise mutexes as false
+    if(!concurrent){
+      body += mutex_start_state(murphiModule.findReference("cl_mut")->getDefiningId());
+    }
+
     // Add the text to SS
     ss.addText(start_state_defintion(body));
     murphiModule.addStartState(ss);
@@ -700,10 +734,11 @@ private:
             new target::murphi::CacheCPUEventFunction(curState, action);
         // Walk the nested Operations in the function and generate Murphi for
         // them
-        for(mlir::Operation &nestedOp : funcOp.getRegion().getBlocks().front().getOperations()){
+        for (mlir::Operation &nestedOp :
+             funcOp.getRegion().getBlocks().front().getOperations()) {
           cacheFunc->addNestedOp(generateOperationMurphi(nestedOp, machine));
         }
-        
+
         murphiModule.addCacheCPUEventFunction(cacheFunc);
       }
       return mlir::WalkResult::advance();
@@ -721,7 +756,7 @@ private:
                                    .getValue()
                                    .str();
         target::murphi::CacheRule cr =
-            target::murphi::CacheRule(curState, action);
+            target::murphi::CacheRule(curState, action, concurrent);
         c_ruleset.addRule(cr);
       }
     });
@@ -752,7 +787,7 @@ void registerToMurphiTranslation() {
   mlir::TranslateFromMLIRRegistration registration(
       "mlir-to-murphi",
       [](mlir::ModuleOp op, mlir::raw_ostream &output) {
-        auto murphiGen = murphiGenImpl::MurphiGen(op);
+        auto murphiGen = murphiGenImpl::MurphiGen(op, /*concurrent*/ false);
         auto &murphiModule = murphiGen.createModule();
         murphiModule.print(output);
         return mlir::success();

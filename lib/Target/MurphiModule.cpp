@@ -57,6 +57,11 @@ bool target::murphi::Module::addMessageConstructor(
   return true;
 }
 
+bool target::murphi::Module::addMutexHelperFunction(target::murphi::MutexHelperFunction *helperFunction){
+  mutHelpFuns.push_back(helperFunction);
+  return true;
+}
+
 bool target::murphi::Module::addSendFunction(
     target::murphi::SendFunction *sendFunc) {
   sendFunctions.push_back(sendFunc);
@@ -107,6 +112,12 @@ void target::murphi::Module::print(mlir::raw_ostream &stream) {
   for (auto mc : msgContructors) {
     mc->print(stream);
   }
+
+  // ----- Print the Mutex helper function ----- //
+  for (auto hf : mutHelpFuns){
+    hf->print(stream);
+  }
+
 
   // ----- Print the Send helper function ----- //
   for (auto sf : sendFunctions) {
@@ -159,6 +170,13 @@ target::murphi::Module::findReference(std::string id) {
       return mc;
     }
   }
+  // Search Mutex Helper Functions
+  for(auto hf : this->mutHelpFuns){
+    if(hf->getDefiningId() == id){
+      return hf;
+    }
+  }
+
   // Search Send Functions
   for (auto sf : this->sendFunctions) {
     if (sf->getDefiningId() == id) {
@@ -267,6 +285,11 @@ void target::murphi::MessageContructor::print(mlir::raw_ostream &stream) {
   stream << message_constructor(id, msgParams, fieldDefs);
 }
 
+// ------- MutexHelperFunction ------- //
+void target::murphi::MutexHelperFunction::print(mlir::raw_ostream &stream){
+  stream << mutex_helper_function(id, clVar->getDefiningId(), mutValue ? "true" : "false");
+}
+
 // ------- SendFunction ------- //
 void target::murphi::SendFunction::print(mlir::raw_ostream &stream) {
   switch (ordering) {
@@ -292,7 +315,7 @@ void target::murphi::CacheCPUEventFunction::addNestedOp(std::string op){
 
 // ------- Cache Rule ------- //
 std::string target::murphi::CacheRule::to_string() {
-  return cache_rule(curState, cpuEvent);
+  return cache_rule(curState, cpuEvent, concurrent);
 }
 
 // ------- Cache RuleSet ------- //

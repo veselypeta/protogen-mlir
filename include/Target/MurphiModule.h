@@ -168,6 +168,19 @@ private:
   std::vector<std::string> extraFields;
 };
 
+class MutexHelperFunction : public LanguageConstruct {
+public:
+  MutexHelperFunction(std::string id, bool mutValue, LanguageConstruct *clVar): id{id}, mutValue{mutValue}, clVar{clVar} {}
+  virtual void print(mlir::raw_ostream &stream);
+  virtual std::string getDefiningId() { return id; }
+
+private:
+std::string id;
+bool mutValue;
+LanguageConstruct *clVar;
+
+};
+
 class SendFunction : public LanguageConstruct {
 public:
   SendFunction(std::string netId, NetworkOrder ordering)
@@ -230,13 +243,14 @@ private:
 
 class CacheRule {
 public:
-  CacheRule(std::string curState, std::string cpuEvent)
-      : curState{curState}, cpuEvent{cpuEvent} {}
+  CacheRule(std::string curState, std::string cpuEvent, bool concurrent)
+      : curState{curState}, cpuEvent{cpuEvent}, concurrent{concurrent} {}
   std::string to_string();
 
 private:
   std::string curState;
   std::string cpuEvent;
+  bool concurrent;
 };
 
 class CacheRuleset {
@@ -284,6 +298,7 @@ public:
   bool addBoilerplate(target::murphi::Boilerplate *boilerplate);
   bool addVariable(target::murphi::Variable *var);
   bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
+  bool addMutexHelperFunction(target::murphi::MutexHelperFunction *helperFunction);
   bool addSendFunction(target::murphi::SendFunction *sendFunc);
   bool
   addCacheCPUEventFunction(target::murphi::CacheCPUEventFunction *cpuEventFunc);
@@ -318,6 +333,11 @@ public:
       delete mc;
     }
 
+    // Delete Mutex Helper Functions
+    for (auto hf : mutHelpFuns) {
+      delete hf;
+    }
+
     // Delete Send Functions
     for (auto sf : sendFunctions) {
       delete sf;
@@ -340,6 +360,7 @@ private:
   std::vector<Variable *> variables;
 
   std::vector<MessageContructor *> msgContructors;
+  std::vector<MutexHelperFunction *> mutHelpFuns;
   std::vector<SendFunction *> sendFunctions;
 
   std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;

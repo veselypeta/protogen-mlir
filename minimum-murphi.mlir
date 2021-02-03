@@ -21,6 +21,8 @@ module {
         %msg = "murphi.msg_constr"(){msgType="Request", parameters=["GetM", "ID", "directory.ID"]} : () -> i64
         // req.send(msg);
         "murphi.send"(%msg) {netId="req"} : (i64) -> ()
+        // Transition to state cache_I_load
+        "murphi.set"(){id="State", value="cache_I_load"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I", action="load"} : () -> ()
     // end_state & permission as extra attributes
@@ -38,6 +40,8 @@ module {
         %msg = "murphi.msg_constr"(){msgType="Request", parameters=["GetM", "ID", "directory.ID"]} : () -> i64
         // req.send(msg);
         "murphi.send"(%msg) {netId="req"} : (i64) -> ()
+        // Transition to state cache_I_load
+        "murphi.set"(){id="State", value="cache_I_store"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I", action="store"} : () -> ()
 
@@ -45,17 +49,19 @@ module {
         // cl=GetM_Ack_D.cl;
         "murphi.set" (){id="cl", value="GetM_Ack_D.cl"} : () -> ()
         // State = M;
-        "murphi.set" (){id="State", value="cache_I"} : () -> ()
+        "murphi.set" (){id="State", value="cache_M"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I_store", action="GetM_Ack_D"} : () -> ()
 
     // Do nothing
     "murphi.function"()({
+        "murphi.set"(){id="State", value="cache_M"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_M", action="load"} : () -> ()
 
     // Do nothing
     "murphi.function"()({
+        "murphi.set"(){id="State", value="cache_M"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_M", action="store"} : () -> ()
 
@@ -70,6 +76,7 @@ module {
     "murphi.function"()({
         %msg = "murphi.msg_constr"(){msgType="Resp", parameters=["PutM", "ID", "directory.ID", "cl"]} : () -> i64
         "murphi.send"(%msg) {netId="req"} : (i64) -> ()
+        "murphi.set"(){id="State", value="cache_M_evict"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_M", action="evict"} : () -> ()
 
@@ -84,6 +91,7 @@ module {
         %msg = "murphi.msg_constr"(){msgType="Resp", parameters=["GetM_Ack_D", "ID", "GetM.src", "cl"]} : () -> i64
         "murphi.send"(%msg) {netId="resp"} : (i64) -> ()
         "murphi.set"(){id="owner", value="GetM.src"} : () -> ()
+        "murphi.set"(){id="State", value="directory_M"} : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="directory", cur_state="directory_I", action="GetM"} : () -> ()
 

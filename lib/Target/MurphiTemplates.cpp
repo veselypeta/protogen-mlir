@@ -33,6 +33,10 @@ std::string OBJ_Unordered = "\
 OBJ_Unordered: array[Machines] of multiset[U_NET_MAX] of Message; \n\
 ";
 
+std::string CL_MUTEX_template = "\
+CL_MUTEX: array[Address] of boolean;\n\
+";
+
 std::string msg_constructor_template = "\
 function {}(adr: Address; mtype: MessageType; src: Machines; dst: Machines {}) : Message;\n\
 var msg: Message;\n\
@@ -44,6 +48,13 @@ begin\n\
 {}\n\
 \treturn msg;\n\
 end;\n\
+";
+
+std::string mut_help_fun_template = "\
+procedure {0}(adr: Address);\n\
+    {1}[adr] := {2};\n\
+end;\n\
+\n\
 ";
 
 std::string unordered_send_proc_template = "\
@@ -186,12 +197,21 @@ std::string cache_rule_template = "\
 \n\
 rule \"{0}_{1}\"\n\
     cle.State = {0} \n\
-    -- & \n\
-    -- cl_mut[adr] = false\n\
+    {2}\
         ==>\n\
+    {3}\
     SEND_{0}_{1}(adr, m);\n\
 endrule;\n\
 \n\
+";
+
+std::string cache_rule_mutex = "\
+ &\n\
+    cl_mut[adr] = false\n\
+";
+
+std::string cache_rule_aquire_mutex = "\
+Aquire_Mutex(adr);\n\
 ";
 
 std::string write_serialization_template = "\
@@ -245,6 +265,12 @@ for n:Machines do\n\
     endfor;\n\
 ";
 
+std::string mutex_start_state_template = "\
+for a:Address do\n\
+    {0}[a] := false;\n\
+endfor;\n\
+";
+
 std::string msg_constr_template = "\
 msg := {0}(adr, {1});\n\
 ";
@@ -264,6 +290,11 @@ if {0} {1} {2} then \n\
 \n\
 endif\n\
 ";
+
+std::string mutex_helper_function(std::string funId, std::string mutVar,
+                                  std::string mutVal) {
+  return fmt::format(mut_help_fun_template, funId, mutVar, mutVal);
+}
 
 std::string unordered_send_proc(std::string netId) {
   return fmt::format(unordered_send_proc_template, netId);
@@ -300,78 +331,89 @@ std::string cache_load_store_proc(std::string curState, std::string cpuEvent,
                      funcBody);
 }
 
-std::string machine_handler(std::string machineId, std::string body){
+std::string machine_handler(std::string machineId, std::string body) {
   return fmt::format(machine_handler_func_template, machineId, body);
 }
 
-std::string switch_statement(std::string switchField, std::string cases){
+std::string switch_statement(std::string switchField, std::string cases) {
   return fmt::format(switch_statement_template, switchField, cases);
 }
 
-std::string switch_statement_else_false(std::string switchField, std::string cases){
+std::string switch_statement_else_false(std::string switchField,
+                                        std::string cases) {
   return fmt::format(switch_statement_else_false_template, switchField, cases);
 }
 
-std::string case_statement(std::string caseId, std::string body){
+std::string case_statement(std::string caseId, std::string body) {
   return fmt::format(case_statement_template, caseId, body);
 }
 
-std::string cache_ruleset(std::string rules){
+std::string cache_ruleset(std::string rules) {
   return fmt::format(cache_ruleset_template, rules);
 }
 
 // Generate a rule within a cache ruleset
-std::string cache_rule(std::string curState, std::string cpuEvent){
-  return fmt::format(cache_rule_template, curState, cpuEvent);
+std::string cache_rule(std::string curState, std::string cpuEvent,
+                       bool concurrent) {
+  if (!concurrent) {
+    return fmt::format(cache_rule_template, curState, cpuEvent,
+                       cache_rule_mutex, cache_rule_aquire_mutex);
+  }
+  return fmt::format(cache_rule_template, curState, cpuEvent, "", "");
 }
 
 // Create a Startstate definition, and insert the body in appropriate place
-std::string start_state_defintion(std::string body){
+std::string start_state_defintion(std::string body) {
   return fmt::format(start_state_template, body);
 }
 
 // Generate the machine startstate definitions
-std::string mach_start_state(std::string machId, std::string operations){
+std::string mach_start_state(std::string machId, std::string operations) {
   return fmt::format(mach_start_state_def_template, machId, operations);
 }
 
 // Generate Assignment Operation
-std::string start_state_assignment(std::string machId, std::string field, std::string value){
+std::string start_state_assignment(std::string machId, std::string field,
+                                   std::string value) {
   return fmt::format(start_state_assign_template, machId, field, value);
 }
 
 // Generate the StartState for an unordered network
-std::string start_state_unordered_network(std::string netId){
+std::string start_state_unordered_network(std::string netId) {
   return fmt::format(unord_net_start_state_template, netId);
 }
 
 // Generate the StartState for an ordered network
-std::string start_state_ordered_network(std::string netId){
+std::string start_state_ordered_network(std::string netId) {
   return fmt::format(ord_net_start_state_temlate, netId);
 }
 
-// Generate the WriteSerialization result
-std::string write_serialization(){
-  return write_serialization_template;
+// Generate the StartState for mutex definition
+std::string mutex_start_state(std::string mutId){
+  return fmt::format(mutex_start_state_template, mutId);
 }
 
+// Generate the WriteSerialization result
+std::string write_serialization() { return write_serialization_template; }
 
 /// =================== ///
 // Operations Templates ///
 /// =================== ///
 
-std::string message_constructor(std::string constrId, std::string parameters){
+std::string message_constructor(std::string constrId, std::string parameters) {
   return fmt::format(msg_constr_template, constrId, parameters);
 }
 
-std::string send_message(std::string netId){
+std::string send_message(std::string netId) {
   return fmt::format(call_send_template, netId);
 }
 
-std::string assign_value(std::string machId, std::string id, std::string value){
+std::string assign_value(std::string machId, std::string id,
+                         std::string value) {
   return fmt::format(aux_state_assignment, machId, id, value);
 }
 
-std::string if_statement(std::string lhs, std::string condition, std::string rhs, std::string nestedOps){
+std::string if_statement(std::string lhs, std::string condition,
+                         std::string rhs, std::string nestedOps) {
   return fmt::format(if_statement_templates, lhs, condition, rhs, nestedOps);
 }
