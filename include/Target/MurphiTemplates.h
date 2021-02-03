@@ -10,6 +10,7 @@ extern std::string OBJ_Ordered;
 extern std::string OBJ_Orderedcnt;
 extern std::string OBJ_Unordered;
 extern std::string CL_MUTEX_template;
+extern std::string operation_release_mutex_template;
 
 std::string mutex_helper_function(std::string funId, std::string mutVar,
                                   std::string mutVal);

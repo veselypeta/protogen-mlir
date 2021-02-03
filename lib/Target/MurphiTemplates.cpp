@@ -214,6 +214,10 @@ std::string cache_rule_aquire_mutex = "\
 Aquire_Mutex(adr);\n\
 ";
 
+std::string operation_release_mutex_template = "\
+Release_Mutex(adr);\n\
+";
+
 std::string write_serialization_template = "\
 invariant \"Write Serialization\"\n\
     forall c1:OBJSET_cache do\n\

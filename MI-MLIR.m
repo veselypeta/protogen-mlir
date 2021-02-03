@@ -171,7 +171,6 @@ Release_Mutex(adr);
 
 
 
-
   else return false;
 endswitch;
 
@@ -182,7 +181,6 @@ case GetM_Ack_D:
 cache_entry.cl := inmsg.cl;
 cache_entry.State := cache_M;
 Release_Mutex(adr);
-
 
 
 
@@ -199,7 +197,6 @@ cache_entry.State := cache_I;
 
 
 
-
   else return false;
 endswitch;
 
@@ -209,7 +206,6 @@ switch inmsg.mtype
 case Put_Ack: 
 cache_entry.State := cache_I;
 Release_Mutex(adr);
-
 
 
 
@@ -318,7 +314,6 @@ begin
 
 cache_entry.State := cache_M;
 Release_Mutex(adr);
-
 
 endalias;
 end;

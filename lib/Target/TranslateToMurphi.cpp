@@ -562,6 +562,16 @@ private:
       return if_statement(processObjectReference(lhs, machine), comparison,
                           processObjectReference(rhs, machine), nestedOps);
     }
+
+    // Generate the output for a ReleaseMutex Op
+    if (!concurrent) {
+      if (mlir::murphi::ReleaseMutexOp mutOp =
+              mlir::dyn_cast<mlir::murphi::ReleaseMutexOp>(ref)) {
+        // add ReleaseMutex(add); to the output
+        return operation_release_mutex_template;
+      }
+    }
+    
     return "";
   }
 
@@ -710,8 +720,9 @@ private:
     });
 
     // initialise mutexes as false
-    if(!concurrent){
-      body += mutex_start_state(murphiModule.findReference("cl_mut")->getDefiningId());
+    if (!concurrent) {
+      body += mutex_start_state(
+          murphiModule.findReference("cl_mut")->getDefiningId());
     }
 
     // Add the text to SS

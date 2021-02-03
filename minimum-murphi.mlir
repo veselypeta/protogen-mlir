@@ -32,6 +32,7 @@ module {
         "murphi.set"(){id="cl", value="GetM_Ack_D.cl"} : () -> ()
         // State = M;
         "murphi.set"(){id="State", value="cache_M"} : () -> ()
+        "murphi.release_mutex"() : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I_load", action="GetM_Ack_D"} : () -> ()
 
@@ -50,18 +51,21 @@ module {
         "murphi.set" (){id="cl", value="GetM_Ack_D.cl"} : () -> ()
         // State = M;
         "murphi.set" (){id="State", value="cache_M"} : () -> ()
+        "murphi.release_mutex"() : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_I_store", action="GetM_Ack_D"} : () -> ()
 
     // Do nothing
     "murphi.function"()({
         "murphi.set"(){id="State", value="cache_M"} : () -> ()
+        "murphi.release_mutex"() : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_M", action="load"} : () -> ()
 
     // Do nothing
     "murphi.function"()({
         "murphi.set"(){id="State", value="cache_M"} : () -> ()
+        "murphi.release_mutex"() : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_M", action="store"} : () -> ()
 
@@ -82,6 +86,7 @@ module {
 
     "murphi.function"()({
         "murphi.set"(){id="State", value="cache_I"} : () -> ()
+        "murphi.release_mutex"() : () -> ()
         "murphi.return" () :  () -> ()
     }){machine="cache", cur_state="cache_M_evict", action="Put_Ack"} : () -> ()
 

@@ -140,6 +140,12 @@ def EnfIfOp: Murphi_Op<"end_if", [Terminator, HasParent<"IfOp">]>{
         let description = [{}];
 }
 
+def ReleaseMutexOp: Murphi_Op<"release_mutex", []>{
+
+        let summary = "end of a trasaction - release the mutex";
+        let description = [{}];
+}
+
 
 
 
