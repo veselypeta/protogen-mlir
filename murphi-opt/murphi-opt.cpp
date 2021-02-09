@@ -18,7 +18,7 @@
 int main(int argc, char **argv) {
   mlir::registerAllPasses();
   // TODO: Register standalone passes here.
-  mlir::registerPCCToMurphiPassPass();
+  mlir::registerAddTansientStatesPass();
   mlir::registerAddMutexReleasePass();
 
   mlir::DialectRegistry registry;

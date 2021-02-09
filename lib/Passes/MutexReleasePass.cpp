@@ -23,7 +23,7 @@
 using namespace mlir;
 
 namespace {
-struct MutexPass : public mlir::PCCToMurphiPassBase<MutexPass> {
+struct MutexPass : public mlir::AddMutexReleaseBase<MutexPass> {
   void getDependentDialects(mlir::DialectRegistry &registry) const override {
     registry.insert<mlir::murphi::MurphiDialect>();
     registry.insert<mlir::pcc::PCCDialect>();

@@ -1,5 +1,5 @@
 add_mlir_dialect_library(PCCToMurphi
-    ConvertPCCToMurphi.cpp
+    AddTransientStatePass.cpp
     MutexReleasePass.cpp
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/include/Passes/PCCToMurphiPass

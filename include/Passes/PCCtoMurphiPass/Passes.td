@@ -3,9 +3,9 @@
 
 include "mlir/Pass/PassBase.td"
 
-def PCCToMurphiPass : Pass<"convert-pcc-to-murphi", "ModuleOp"> {
-    let summary = "Convert PCC dialect to murphi dialect";
-    let constructor = "mlir::createLowerToMurphiPass()";
+def AddTansientStates : Pass<"add-transient-states", "ModuleOp"> {
+    let summary = "Split Awaited Operations into Transient States";
+    let constructor = "mlir::createAddTransientStatePass()";
 }
 
 def AddMutexRelease : Pass<"add-mutex-release", "ModuleOp">{

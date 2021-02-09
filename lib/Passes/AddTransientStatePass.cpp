@@ -203,7 +203,7 @@ struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
 };
 
 namespace {
-struct MyPass : public PCCToMurphiPassBase<MyPass> {
+struct TransientStatePass : public AddTansientStatesBase<TransientStatePass> {
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<murphi::MurphiDialect>();
     registry.insert<pcc::PCCDialect>();
@@ -212,7 +212,7 @@ struct MyPass : public PCCToMurphiPassBase<MyPass> {
 };
 } // namespace
 
-void MyPass::runOnOperation() {
+void TransientStatePass::runOnOperation() {
   OwningRewritePatternList patterns;
 
   patterns.insert<WhenOpLowering>(&getContext());
@@ -225,6 +225,6 @@ void MyPass::runOnOperation() {
 }
 
 // this is a function that returns the created pass
-std::unique_ptr<::mlir::Pass> mlir::createLowerToMurphiPass() {
-  return std::make_unique<MyPass>();
+std::unique_ptr<::mlir::Pass> mlir::createAddTransientStatePass() {
+  return std::make_unique<TransientStatePass>();
 }
