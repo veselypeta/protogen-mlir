@@ -119,7 +119,7 @@ struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
     rewriter.create<mlir::pcc::SetOp>(rewriter.getUnknownLoc(), "State", new_state);
 
     // restore the insertion point
-    // rewriter.restoreInsertionPoint(savedInsertionPoint);
+    rewriter.restoreInsertionPoint(savedInsertionPoint);
 
     rewriter.eraseOp(awaitOp);
     return mlir::success();
