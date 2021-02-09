@@ -7,6 +7,9 @@ namespace mlir {
 
     std::unique_ptr<::mlir::Pass> createAddTransientStatePass();
     std::unique_ptr<::mlir::Pass> createMutexReleasePass();
+    std::unique_ptr<::mlir::Pass> createPCCToMurphiPass();
+
+    void registerStableCompilation();
 
     //===----------------------------------------------------------------------===//
     // Registration

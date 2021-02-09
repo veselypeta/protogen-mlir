@@ -20,6 +20,8 @@ int main(int argc, char **argv) {
   // TODO: Register standalone passes here.
   mlir::registerAddTansientStatesPass();
   mlir::registerAddMutexReleasePass();
+  mlir::registerConvertPCCToMurphiPass();
+  mlir::registerStableCompilation();
 
   mlir::DialectRegistry registry;
   registry.insert<mlir::pcc::PCCDialect>();
