@@ -9,7 +9,7 @@
 #ifndef MURPHI_OPS
 #define MURPHI_OPS
 // Add ConstantLike
-def ConstantOp : Murphi_Op<"constant", [NoSideEffect]> {
+def ConstantOp : Murphi_Op<"constant"> {
     let summary = "constant";
     let description = [{
             Constant operation produces an SSA value of some constant value
@@ -67,6 +67,15 @@ def FunctionOp : Murphi_Op<"function">{
         let arguments = (ins AnyAttr:$machine, AnyAttr:$cur_state, AnyAttr:$action);
 
         let regions = (region SizedRegion<1>:$region);
+
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$machine, "std::string":$cur_state, "std::string":$action), [{
+                        $_state.addAttribute("machine", $_builder.getStringAttr(machine));
+                        $_state.addAttribute("cur_state", $_builder.getStringAttr(cur_state));
+                        $_state.addAttribute("action", $_builder.getStringAttr(action));
+                        $_state.addRegion();
+                }]>
+        ];
 }
 
 def CacheDefOp : Murphi_Op<"cache_definition">{
@@ -133,9 +142,17 @@ def IfOp: Murphi_Op<"if", []>{
         let regions = (region 
                 SizedRegion<1>:$body
         );
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$lhs, "std::string":$comparison, "std::string":$rhs) , [{
+                        $_state.addAttribute("lhs", $_builder.getStringAttr(lhs));
+                        $_state.addAttribute("comparison", $_builder.getStringAttr(comparison));
+                        $_state.addAttribute("rhs", $_builder.getStringAttr(rhs));
+                        $_state.addRegion();
+                }]>
+        ];
 }
 
-def EnfIfOp: Murphi_Op<"end_if", [Terminator, HasParent<"IfOp">]>{
+def EnfIfOp: Murphi_Op<"end_if", [Terminator]>{
         let summary = "end if op";
         let description = [{}];
 }

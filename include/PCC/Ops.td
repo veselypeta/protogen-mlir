@@ -132,7 +132,7 @@ def MsgConstrOp : PCC_Op<"msg_constr", [NoSideEffect]>{
                 ```
         }];
 
-        let arguments = (ins ArrayAttr:$params);
+        let arguments = (ins ArrayAttr:$params, AnyAttr:$msgType);
         let results = (outs AnyType:$out);
 
         // let arguments = (ins ArrayAttr:$value);

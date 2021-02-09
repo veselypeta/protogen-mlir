@@ -503,7 +503,9 @@ private:
 
     return builder.create<mlir::pcc::MsgConstrOp>(builder.getUnknownLoc(),
                                                   builder.getI64Type(),
-                                                  builder.getArrayAttr(params));
+                                                  builder.getArrayAttr(params),
+                                                  builder.getStringAttr(constrId)
+                                                  );
   }
 
   // object_expr : object_id | object_func;
