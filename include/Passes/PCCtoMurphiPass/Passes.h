@@ -6,6 +6,7 @@ namespace mlir {
     class Pass;
 
     std::unique_ptr<::mlir::Pass> createLowerToMurphiPass();
+    std::unique_ptr<::mlir::Pass> createMutexReleasePass();
 
     //===----------------------------------------------------------------------===//
     // Registration

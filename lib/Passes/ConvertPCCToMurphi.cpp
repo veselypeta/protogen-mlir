@@ -21,8 +21,71 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <algorithm>
 
 using namespace mlir;
+
+struct InsertSetState : public OpRewritePattern<mlir::pcc::AwaitOp> {
+  InsertSetState(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::pcc::AwaitOp>(context, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::AwaitOp>::OpRewritePattern;
+
+  mlir::LogicalResult match(mlir::pcc::AwaitOp awaitOp) const override {
+    // if the parent of the when op is a Function -- the we can continue
+    mlir::Operation *parentOp = awaitOp.getParentOp();
+    mlir::pcc::FunctionOp matchedFun =
+        mlir::dyn_cast<mlir::pcc::FunctionOp>(parentOp);
+    // Fail if we do not get an await has parent FunctionOp
+    if (matchedFun == nullptr) {
+      return mlir::failure();
+    }
+
+    // Check if we have not already inserted a set-state
+    for (mlir::Operation &op :
+         matchedFun.getRegion().getBlocks().front().getOperations()) {
+      if (mlir::pcc::SetOp setOp = mlir::dyn_cast<mlir::pcc::SetOp>(&op)) {
+        // is it setting the state? -- TODO check inside ifs
+        std::string idAttr =
+            setOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+        if (idAttr == "State") {
+          return mlir::failure();
+        }
+      }
+    }
+    return mlir::success();
+  }
+
+  void rewrite(mlir::pcc::AwaitOp awaitOp,
+               mlir::PatternRewriter &rewriter) const override {
+    // save ip for restoration
+    auto startIP = rewriter.saveInsertionPoint();
+
+    // set the insertion point to end of await
+    rewriter.setInsertionPointAfter(awaitOp);
+
+    // get the parent function
+    mlir::pcc::FunctionOp parentFunc =
+        awaitOp.getParentOfType<mlir::pcc::FunctionOp>();
+    // std::string machine =
+    // parentFunc.getAttr("machine").cast<mlir::StringAttr>().getValue().str();
+    std::string cur_state = parentFunc.getAttr("cur_state")
+                                .cast<mlir::StringAttr>()
+                                .getValue()
+                                .str();
+    std::string action =
+        parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+
+    // construct the new state
+    std::string transient_state = cur_state + "_" + action;
+
+    // create the setstate Op
+    rewriter.create<mlir::pcc::SetOp>(rewriter.getUnknownLoc(), "State",
+                                      transient_state);
+
+    // restore IP
+    rewriter.restoreInsertionPoint(startIP);
+  }
+};
 
 struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
   AwaitOpLowering(mlir::MLIRContext *context)
@@ -35,15 +98,31 @@ struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
 
     // Get the entry block of the opeartion
     mlir::Block &awaitEntryBlock = awaitOp.getRegion().front();
-    for(mlir::Operation &op : awaitEntryBlock.getOperations()){
+    for (mlir::Operation &op : awaitEntryBlock.getOperations()) {
       // If anything except a await retrun op is found then it cannot be removed
-      if(dyn_cast<mlir::pcc::AwaitReturnOp>(op) == nullptr){
+      if (dyn_cast<mlir::pcc::AwaitReturnOp>(op) == nullptr) {
         return mlir::failure();
       }
     }
 
+    // save the insertion point
+    auto savedInsertionPoint = rewriter.saveInsertionPoint();
+
+    // insert a set state op
+    mlir::pcc::FunctionOp parentFunc = awaitOp.getParentOfType<mlir::pcc::FunctionOp>();
+    std::string cur_state = parentFunc.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+    std::string action = parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    std::string new_state = cur_state + "_" + action;
+
+    // set insetion point after the await op
+    rewriter.setInsertionPointAfter(awaitOp);
+    rewriter.create<mlir::pcc::SetOp>(rewriter.getUnknownLoc(), "State", new_state);
+
+    // restore the insertion point
+    // rewriter.restoreInsertionPoint(savedInsertionPoint);
+
     rewriter.eraseOp(awaitOp);
-    return mlir::success();    
+    return mlir::success();
   }
 };
 
@@ -122,7 +201,6 @@ struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
     return mlir::success();
   }
 };
-
 
 namespace {
 struct MyPass : public PCCToMurphiPassBase<MyPass> {

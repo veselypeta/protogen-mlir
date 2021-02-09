@@ -555,6 +555,9 @@ private:
       }
     }
 
+    // TODO -- insert Break operation after the end of a when
+    builder.create<mlir::pcc::BreakOp>(builder.getUnknownLoc());
+
     // reset the insertion point
     builder.setInsertionPointAfter(whenOp);
     return mlir::success();
@@ -590,7 +593,9 @@ private:
   // next_break : BREAK SEMICOLON;
   mlir::LogicalResult mlirGen(ProtoCCParser::Next_breakContext *ctx) {
     // Create a Terminator Operator for the Transaction Region
-    builder.create<mlir::pcc::BreakOp>(builder.getUnknownLoc());
+    if (cur_mach == "cache") {
+      builder.create<mlir::murphi::ReleaseMutexOp>(builder.getUnknownLoc());
+    }
     return mlir::success();
   }
 
@@ -614,16 +619,16 @@ private:
     return mlir::success();
   }
 
-
-  // exprwbreak: expressions | network_send | network_mcast | network_bcast | transaction | next_break;
+  // exprwbreak: expressions | network_send | network_mcast | network_bcast |
+  // transaction | next_break;
   mlir::LogicalResult mlirGen(ProtoCCParser::ExprwbreakContext *ctx) {
-    if(ctx->expressions() != nullptr){
+    if (ctx->expressions() != nullptr) {
       return mlirGen(ctx->expressions());
     }
-    if(ctx->network_send() != nullptr){
+    if (ctx->network_send() != nullptr) {
       return mlirGen(ctx->network_send());
     }
-    if(ctx->transaction() != nullptr){
+    if (ctx->transaction() != nullptr) {
       // TODO -- Currently don't suuport transactions within if statement
     }
     // TODO - other paths are currently not supported
@@ -634,7 +639,7 @@ private:
     // If statement
     if (ctx->if_stmt() != nullptr) {
 
-      // Currently only using the first condition i.e. owner==PutM.src 
+      // Currently only using the first condition i.e. owner==PutM.src
       // -- TODO -- add more complex conditions
       ProtoCCParser::Cond_selContext *firstCondition =
           ctx->if_stmt()->cond_comb()->cond_rel()[0]->cond_sel();
@@ -655,7 +660,7 @@ private:
 
       // Add nested Operations
       for (auto expr : ctx->if_stmt()->if_expression()->exprwbreak()) {
-        if(mlir::failed(mlirGen(expr))){
+        if (mlir::failed(mlirGen(expr))) {
           return mlir::failure();
         }
       }

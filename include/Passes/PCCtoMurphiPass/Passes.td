@@ -8,4 +8,9 @@ def PCCToMurphiPass : Pass<"convert-pcc-to-murphi", "ModuleOp"> {
     let constructor = "mlir::createLowerToMurphiPass()";
 }
 
+def AddMutexRelease : Pass<"add-mutex-release", "ModuleOp">{
+    let summary = "Adds mutex release operations after end of transactions";
+    let constructor = "mlir::createMutexReleasePass()";
+}
+
 #endif // PCC_TO_MURPHI_PASS
