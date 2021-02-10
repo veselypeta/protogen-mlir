@@ -1,4 +1,4 @@
-# NrCaches 3
+# nrCaches 3
 
 Network { Ordered fwd;    //FwdGetS, FwdGetM, Inv, PutAck
           Unordered resp; // Data, InvAck
@@ -61,7 +61,7 @@ Architecture cache {
 
 
     // M ////////////////////////////////////////////////////////
-    Process(M, load){
+    Process(M, load, M){
     }
 
     Process(M, store, M){}

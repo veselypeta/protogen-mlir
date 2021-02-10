@@ -2414,7 +2414,7 @@ mu_1_CL_MUTEX::~mu_1_CL_MUTEX()
 /*** end array declaration ***/
 mu_1_CL_MUTEX mu_1_CL_MUTEX_undefined_var;
 
-const int mu_NrCaches = 3;
+const int mu_nrCaches = 3;
 const int mu_VAL_COUNT = 1;
 const int mu_ADR_COUNT = 1;
 const int mu_O_NET_MAX = 12;
@@ -2826,6 +2826,7 @@ mu_1_Message mu_msg("msg",0);
 
 {
   mu_1_ENTRY_cache& mu_cache_entry = mu_i_cache[mu_m].mu_CL[mu_adr];
+mu_cache_entry.mu_State = mu_cache_M;
 mu_Release_Mutex ( mu_adr );
 }
 };
@@ -2838,6 +2839,7 @@ mu_1_Message mu_msg("msg",0);
 
 {
   mu_1_ENTRY_cache& mu_cache_entry = mu_i_cache[mu_m].mu_CL[mu_adr];
+mu_cache_entry.mu_State = mu_cache_M;
 mu_Release_Mutex ( mu_adr );
 }
 };

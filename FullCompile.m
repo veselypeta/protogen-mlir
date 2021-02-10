@@ -1,6 +1,6 @@
 const
 
-	NrCaches : 3;
+	nrCaches : 3;
 	VAL_COUNT : 1;
 	ADR_COUNT : 1;
 	O_NET_MAX : 12;
@@ -32,7 +32,7 @@ directory_state : enum {
 };
 Address: scalarset(ADR_COUNT);
 ClValue: 0..VAL_COUNT;
-OBJSET_cache: scalarset(3);
+OBJSET_cache: scalarset(nrCaches);
 OBJSET_directory : enum {
 	directory
 };
@@ -236,6 +236,7 @@ directory_entry.owner := inmsg.src;
 directory_entry.State := directory_M;
 
 
+
   else return false;
 endswitch;
 
@@ -301,7 +302,7 @@ var msg: Message;
 begin
   alias cache_entry: i_cache[m].CL[adr] do
 
---cache_entry.State := cache_M;
+cache_entry.State := cache_M;
 Release_Mutex(adr);
 
 endalias;
@@ -312,7 +313,7 @@ var msg: Message;
 begin
   alias cache_entry: i_cache[m].CL[adr] do
 
---cache_entry.State := cache_M;
+cache_entry.State := cache_M;
 Release_Mutex(adr);
 
 endalias;

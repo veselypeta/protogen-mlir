@@ -133,6 +133,13 @@ def SetOp:Murphi_Op<"set", []>{
         let summary = "set some value in the auxiliarly state";
         let description = [{}];
         let arguments = (ins AnyAttr:$id, AnyAttr:$value);
+
+        let builders = [
+                OpBuilderDAG<(ins "std::string":$id, "std::string":$value) , [{
+                        $_state.addAttribute("id", $_builder.getStringAttr(id));
+                        $_state.addAttribute("value", $_builder.getStringAttr(value));
+                }]>
+        ];
 }
 
 def IfOp: Murphi_Op<"if", []>{

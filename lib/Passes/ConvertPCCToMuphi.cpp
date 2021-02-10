@@ -137,6 +137,29 @@ struct FunctionOpConversion : public OpRewritePattern<mlir::pcc::FunctionOp> {
     // Save the insertsion point
     auto savedIp = rewriter.saveInsertionPoint();
 
+    // -- Check if PCC Function Op has an end-state attr
+    // If so we need to insert a set - state operation at the end of the block
+    mlir::Attribute end_state_attr = pccFunctionOp.getAttr("end_state");
+    if (end_state_attr != nullptr) {
+      std::string end_state =
+          end_state_attr.cast<mlir::StringAttr>().getValue().str();
+      
+      mlir::Operation *r;
+      for(auto &op : pccFunctionOp.getRegion().getBlocks().front().getOperations()){
+        auto rt = mlir::dyn_cast<mlir::pcc::ReturnOp>(op);
+        auto mr = mlir::dyn_cast<mlir::murphi::ReleaseMutexOp>(op);
+        if (rt != nullptr){
+          r = &op;
+        }
+        if(mr != nullptr){
+          r = &op;
+          break;
+        }
+      }
+      rewriter.setInsertionPoint(r);
+      rewriter.create<mlir::murphi::SetOp>(rewriter.getUnknownLoc(), "State", end_state);
+    }
+
     // set insertion point to end of current function
     rewriter.setInsertionPointAfter(pccFunctionOp);
 
@@ -147,7 +170,8 @@ struct FunctionOpConversion : public OpRewritePattern<mlir::pcc::FunctionOp> {
             pccFunctionOp.getAttr("cur_state"),
             pccFunctionOp.getAttr("action"));
 
-    rewriter.inlineRegionBefore(pccFunctionOp.getRegion(), murFunOp.getRegion(), murFunOp.getRegion().end());
+    rewriter.inlineRegionBefore(pccFunctionOp.getRegion(), murFunOp.getRegion(),
+                                murFunOp.getRegion().end());
 
     // remove the old op
     rewriter.eraseOp(pccFunctionOp);

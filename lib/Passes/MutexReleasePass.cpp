@@ -22,6 +22,10 @@
 
 using namespace mlir;
 
+bool isCpuEvent(std::string event){
+  return event == "load" || event == "store" || event == "evict";
+}
+
 namespace {
 struct MutexPass : public mlir::AddMutexReleaseBase<MutexPass> {
   void getDependentDialects(mlir::DialectRegistry &registry) const override {
@@ -65,6 +69,12 @@ void MutexPass::insertMutexRelease(mlir::pcc::FunctionOp funOp) {
     if (mlir::dyn_cast<mlir::pcc::AwaitOp>(op) != nullptr) {
       containsAwait = true;
     }
+  }
+
+  // we only release in cpu event functions
+  std::string action = funOp.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+  if(!isCpuEvent(action)){
+    return;
   }
 
   if (containsAwait) {
