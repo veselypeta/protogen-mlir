@@ -19,6 +19,22 @@
 #include "llvm/ADT/Sequence.h"
 
 #include <iostream>
+using namespace mlir;
+
+class GenerateTransientStates
+    : public mlir::OpRewritePattern<mlir::pcc::FunctionOp> {
+  GenerateTransientStates(mlir::MLIRContext *context)
+      : OpRewritePattern<mlir::pcc::FunctionOp>(context, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::FunctionOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::FunctionOp funcOp,
+                                      PatternRewriter &rewriter) const final {
+
+    mlir::ModuleOp mod = funcOp.getParentOfType<mlir::ModuleOp>();
+
+    
+  }
+};
 
 namespace {
 struct ProtogenPass : public mlir::ProtogenOptimizationBase<ProtogenPass> {
@@ -30,11 +46,14 @@ struct ProtogenPass : public mlir::ProtogenOptimizationBase<ProtogenPass> {
 };
 } // namespace
 
+void ProtogenPass::runOnOperation() {
+  mlir::OwningRewritePatternList patterns;
 
-void ProtogenPass::runOnOperation(){
-
+  if (mlir::failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
+                                                      std::move(patterns)))) {
+    return signalPassFailure();
+  }
 }
-
 
 // this is a function that returns the created pass
 std::unique_ptr<::mlir::Pass> mlir::createProtogenOptimizationPass() {
