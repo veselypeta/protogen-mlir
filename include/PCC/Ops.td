@@ -73,7 +73,7 @@ def ReturnOp : PCC_Op<"return", [NoSideEffect, Terminator]> {
 
 
 def FunctionOp : PCC_Op<"function">{
-        let summary = "represent a murphi function";
+        let summary = "represent a PCC function";
         let description = [{}];
 
         let arguments = (ins AnyAttr:$machine, AnyAttr:$cur_state, AnyAttr:$action, OptionalAttr<AnyAttr>:$end_state);

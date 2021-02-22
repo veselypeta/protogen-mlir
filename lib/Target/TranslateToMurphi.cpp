@@ -798,7 +798,7 @@ void registerToMurphiTranslation() {
   mlir::TranslateFromMLIRRegistration registration(
       "mlir-to-murphi",
       [](mlir::ModuleOp op, mlir::raw_ostream &output) {
-        auto murphiGen = murphiGenImpl::MurphiGen(op, /*concurrent*/ false);
+        auto murphiGen = murphiGenImpl::MurphiGen(op, /*concurrent*/ true);
         auto &murphiModule = murphiGen.createModule();
         murphiModule.print(output);
         return mlir::success();
