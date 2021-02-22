@@ -210,7 +210,6 @@ void ConvertPCCPass::runOnOperation() {
   mlir::OwningRewritePatternList patterns;
 
   // insert patterns
-  // patterns.insert<FunctionConversion>(&getContext());
   patterns.insert<SetOpConversion>(&ctx);
   patterns.insert<MsgConstrConversion>(&ctx);
   patterns.insert<SendOpConversion>(&ctx);

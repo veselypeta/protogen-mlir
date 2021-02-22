@@ -21,6 +21,7 @@ int main(int argc, char **argv) {
   mlir::registerAddTansientStatesPass();
   mlir::registerAddMutexReleasePass();
   mlir::registerConvertPCCToMurphiPass();
+  mlir::registerProtogenOptimizationPass();
   mlir::registerStableCompilation();
 
   mlir::DialectRegistry registry;

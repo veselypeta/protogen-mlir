@@ -18,4 +18,9 @@ def ConvertPCCToMurphi : Pass<"pcc-to-murphi", "ModuleOp">{
     let constructor = "mlir::createPCCToMurphiPass()";
 }
 
+def ProtogenOptimization : Pass<"protogen-optimization">{
+    let summary = "Adds concurency to handle racing transactions";
+    let constructor = "mlir::createProtogenOptimizationPass()";
+}
+
 #endif // PCC_TO_MURPHI_PASS
