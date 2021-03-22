@@ -8,11 +8,14 @@ Network { Ordered fwd;    //FwdGetS, FwdGetM, Inv, PutAck
 Cache {
     State I;
     Data cl;
+    int[0..NrCaches] acksReceived = 0;
+    int[0..NrCaches] acksExpected = 0;
 } set[NrCaches] cache;
 
 Directory {
     State I;
     Data cl;
+    set[NrCaches] ID cache;
     ID owner;
 } directory;
 
@@ -26,6 +29,7 @@ Message Resp{
 
 Message RespAck{
     Data cl;
+    int[0..NrCaches] acksExpected;
 };
 
 Architecture cache {
