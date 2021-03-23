@@ -2,6 +2,7 @@
 #include "mlir/IR/Module.h"
 #include <string>
 #include <vector>
+
 namespace utils {
 
 bool isCpuEvent(std::string event);
@@ -11,5 +12,6 @@ std::string getLogicalStartState(std::string state);
 bool doesHandlerExist(std::string state, std::string msgId, mlir::ModuleOp &mod);
 bool doesStateExist(std::string state, mlir::ModuleOp &mod);
 bool isTransientState(std::string state);
+std::string getUniqueId();
 
 } // namespace utils

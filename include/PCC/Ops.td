@@ -22,6 +22,9 @@ def ConstantOp : PCC_Op<"constant", []> {
             }]>,
             OpBuilderDAG<(ins "std::string":$id, "int":$integerValue), [{
                     build($_builder,$_state, $_builder.getStringAttr(id), $_builder.getI64IntegerAttr(integerValue));
+            }]>,
+            OpBuilderDAG<(ins "std::string":$id, "bool":$booleanValue), [{
+                    build($_builder,$_state, $_builder.getStringAttr(id), $_builder.getBoolAttr(booleanValue));
             }]>
 
     ];
@@ -42,13 +45,13 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
         }];
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
-        let results = (outs PCC_NetType:$output);
+        let results = (outs AnyType);
 
-        let builders = [
-                OpBuilderDAG<(ins "std::string":$netId, "std::string":$ordering), [{
-                        build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext(), ordering), $_builder.getStringAttr(netId), $_builder.getStringAttr(ordering));
-                }]>
-        ];
+        // let builders = [
+        //         OpBuilderDAG<(ins "std::string":$netId, "std::string":$ordering), [{
+        //                 build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext(), ordering), $_builder.getStringAttr(netId), $_builder.getStringAttr(ordering));
+        //         }]>
+        // ];
 
 }
 
@@ -69,6 +72,12 @@ def ReturnOp : PCC_Op<"return", [NoSideEffect, Terminator]> {
     ```
   }];
   let arguments = (ins Optional<AnyType>:$ret);
+  let builders = [
+        OpBuilderDAG<(ins ), [{
+                mlir::Value v;
+                build($_builder, $_state, v);
+        }]>
+  ];
 }
 
 
@@ -230,11 +239,60 @@ def IfOp: PCC_Op<"if", []>{
         ];
 }
 
+def ExIfOp: PCC_Op<"ifelse", [SingleBlockImplicitTerminator<"pcc::ReturnOp">, NoRegionArguments]>{
+        let summary = "If op that operates on operand";
+        let description = [{}];
+
+        let arguments = (ins I1:$condition);
+
+        let regions = (region 
+                SizedRegion<1>:$thenRegion,
+                AnyRegion:$elseRegion
+                );
+
+        let builders = [
+                OpBuilderDAG<(ins "Value":$cond, "bool":$withElseRegion)>
+        ];
+
+        let extraClassDeclaration = [{
+                mlir::Region &getThenRegion(){
+                        return getRegion(0);
+                }
+                mlir::Region &getElseRegion(){
+                        return getRegion(1);
+                }
+        }];
+
+}
+
+def ObjRefOp: PCC_Op<"obj_ref", []>{
+        let summary = "reference a global object";
+        let description = [{}];
+
+        let arguments = (ins StrAttr:$objId);
+        let results = (outs AnyType);
+}
+
 
 def EnfIfOp: PCC_Op<"end_if", [Terminator, HasParent<"IfOp">]>{
         let summary = "end if op";
         let description = [{}];
 
+}
+
+def CompareOp: PCC_Op<"compare", []>{
+        let summary = "compare two SSA values";
+        let description = [{}];
+
+        let arguments = (ins AnyType:$lhs, AnyType:$rhs, StrAttr:$oper, StrAttr:$id);
+        let results = (outs I1);
+}
+
+def MathOp: PCC_Op<"math", []>{
+        let summary = "perfomr math op";
+        let description = [{}];
+        let arguments = (ins AnyType:$lhs, AnyType:$rhs, StrAttr:$op, StrAttr:$id);
+        let results = (outs AnyType);
 }
 
 #endif // PCC_OPS

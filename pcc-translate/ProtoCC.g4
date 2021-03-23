@@ -226,6 +226,7 @@ conditional: if_stmt | ifnot_stmt;
         cond_comb: cond_rel (combinatorial_operator cond_rel)*;
         cond_rel : OBRACE* cond_sel CBRACE*;
             cond_sel : cond_type_expr (relational_operator cond_type_expr)*;
-            cond_type_expr: cond_types ((PLUS | MINUS | MULT) cond_types)*;
+            cond_type_expr: cond_types (indv_math_op cond_types)*;
+            indv_math_op: (PLUS | MINUS | MULT);
             cond_types : object_expr | set_func | INT | BOOL | NID;
 

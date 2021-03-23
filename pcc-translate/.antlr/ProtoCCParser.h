@@ -46,7 +46,7 @@ public:
     RuleAssign_types = 61, RuleMath_op = 62, RuleConditional = 63, RuleIf_stmt = 64, 
     RuleIfnot_stmt = 65, RuleIf_expression = 66, RuleElse_expression = 67, 
     RuleExprwbreak = 68, RuleCond_comb = 69, RuleCond_rel = 70, RuleCond_sel = 71, 
-    RuleCond_type_expr = 72, RuleCond_types = 73
+    RuleCond_type_expr = 72, RuleIndv_math_op = 73, RuleCond_types = 74
   };
 
   ProtoCCParser(antlr4::TokenStream *input);
@@ -132,6 +132,7 @@ public:
   class Cond_relContext;
   class Cond_selContext;
   class Cond_type_exprContext;
+  class Indv_math_opContext;
   class Cond_typesContext; 
 
   class  Send_functionContext : public antlr4::ParserRuleContext {
@@ -1173,17 +1174,26 @@ public:
     virtual size_t getRuleIndex() const override;
     std::vector<Cond_typesContext *> cond_types();
     Cond_typesContext* cond_types(size_t i);
-    std::vector<antlr4::tree::TerminalNode *> PLUS();
-    antlr4::tree::TerminalNode* PLUS(size_t i);
-    std::vector<antlr4::tree::TerminalNode *> MINUS();
-    antlr4::tree::TerminalNode* MINUS(size_t i);
-    std::vector<antlr4::tree::TerminalNode *> MULT();
-    antlr4::tree::TerminalNode* MULT(size_t i);
+    std::vector<Indv_math_opContext *> indv_math_op();
+    Indv_math_opContext* indv_math_op(size_t i);
 
    
   };
 
   Cond_type_exprContext* cond_type_expr();
+
+  class  Indv_math_opContext : public antlr4::ParserRuleContext {
+  public:
+    Indv_math_opContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *PLUS();
+    antlr4::tree::TerminalNode *MINUS();
+    antlr4::tree::TerminalNode *MULT();
+
+   
+  };
+
+  Indv_math_opContext* indv_math_op();
 
   class  Cond_typesContext : public antlr4::ParserRuleContext {
   public:

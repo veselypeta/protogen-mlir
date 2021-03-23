@@ -83,6 +83,7 @@ def CacheDefOp : Murphi_Op<"cache_definition">{
         let description = [{}];
 
         let arguments = (ins ArrayAttr:$fields, ArrayAttr:$types);
+        let results = (outs AnyType);
 }
 
 def DirectoryDefOp : Murphi_Op<"directory_definition">{
@@ -90,6 +91,7 @@ def DirectoryDefOp : Murphi_Op<"directory_definition">{
         let description = [{}];
 
         let arguments = (ins ArrayAttr:$fields, ArrayAttr:$types);
+        let results = (outs AnyType);
 }
 
 def MessageDefOp : Murphi_Op<"message_definition">{

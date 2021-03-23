@@ -2,6 +2,7 @@
 #include "antlr4-runtime.h"
 #include <algorithm>
 #include <iostream>
+#include <list>
 #include <numeric>
 #include <utility>
 
@@ -24,6 +25,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include "utils/stateUtils.h"
 
 namespace {
 class MLIRGenImpl {
@@ -59,12 +62,7 @@ public:
 
 private:
   mlir::ModuleOp theModule;
-
   mlir::OpBuilder builder;
-
-  llvm::StringMap<std::pair<mlir::Type, ProtoCCParser::Message_blockContext *>>
-      messageTypeMap;
-
   llvm::StringMap<mlir::Value> globals;
 
   llvm::ScopedHashTable<
@@ -93,6 +91,28 @@ private:
     }
     symbolTable.insert(idBuffer, {value, ctx});
     return mlir::success();
+  }
+
+  mlir::LogicalResult declareGlobal(mlir::Value value, std::string id) {
+    char *idBuffer = (char *)malloc(sizeof(char) * id.length());
+    strcpy(idBuffer, id.c_str());
+    if (globals.try_emplace(idBuffer, value).second) {
+      return mlir::failure();
+    }
+    return mlir::success();
+  }
+
+  mlir::Value lookup(mlir::StringRef value) {
+    // Lookup in the local symbol table
+    auto symLookup = symbolTable.lookup(value);
+    if (symLookup.first != nullptr) {
+      return symLookup.first;
+    }
+    auto globalLookup = globals.lookup(value);
+    if (globalLookup != nullptr) {
+      return globalLookup;
+    }
+    assert(false && "Value is not to be found");
   }
 
   // -------------------------------- //
@@ -165,8 +185,27 @@ private:
     if (ctx->id_decl() != nullptr) {
       // TODO -- id_decl is more complicated!!!
       std::string id = ctx->id_decl()->ID()[0]->getText();
+      // not a set decl ID
+      if (ctx->id_decl()->set_decl().size() == 0) {
+        return std::make_pair(builder.getStringAttr(id),
+                              builder.getStringAttr("ID"));
+      }
+      std::string range = ctx->id_decl()->set_decl()[0]->getText() + " ID";
       return std::make_pair(builder.getStringAttr(id),
-                            builder.getStringAttr("ID"));
+                            builder.getStringAttr(range));
+    }
+    if (ctx->int_decl() != nullptr) {
+      std::string intRangeId = ctx->int_decl()->ID()->getText();
+      auto rangeCtx = ctx->int_decl()->range();
+      std::string range = rangeCtx->val_range()[0]->getText() + ".." +
+                          rangeCtx->val_range()[1]->getText();
+      // std::string valueStr;
+      // for (auto v : ctx->int_decl()->INT()) {
+      //   valueStr += v->getText();
+      // }
+      // int value = std::atoi(valueStr.c_str());
+      return std::make_pair(builder.getStringAttr(intRangeId),
+                            builder.getStringAttr(range));
     }
     return std::make_pair(nullptr, nullptr);
   }
@@ -191,6 +230,7 @@ private:
 
     std::vector<mlir::Attribute> fields;
     std::vector<mlir::Attribute> types;
+    std::string cacheId = ctx->ID()->getText();
 
     for (auto decl : ctx->declarations()) {
       mlir::Attribute f;
@@ -201,10 +241,12 @@ private:
     }
 
     mlir::murphi::CacheDefOp cacheDef =
-        builder.create<mlir::murphi::CacheDefOp>(builder.getUnknownLoc(),
-                                                 builder.getArrayAttr(fields),
-                                                 builder.getArrayAttr(types));
+        builder.create<mlir::murphi::CacheDefOp>(
+            builder.getUnknownLoc(), builder.getI64Type(),
+            builder.getArrayAttr(fields), builder.getArrayAttr(types));
     theModule.push_back(cacheDef);
+
+    declareGlobal(cacheDef, cacheId);
 
     return mlir::success();
   }
@@ -213,6 +255,7 @@ private:
   mlir::LogicalResult mlirGen(ProtoCCParser::Dir_blockContext *ctx) {
     std::vector<mlir::Attribute> fields;
     std::vector<mlir::Attribute> types;
+    std::string dirId = ctx->ID()->getText();
 
     for (auto decl : ctx->declarations()) {
       mlir::Attribute f, t;
@@ -223,9 +266,10 @@ private:
 
     mlir::murphi::DirectoryDefOp dirDef =
         builder.create<mlir::murphi::DirectoryDefOp>(
-            builder.getUnknownLoc(), builder.getArrayAttr(fields),
-            builder.getArrayAttr(types));
+            builder.getUnknownLoc(), builder.getI64Type(),
+            builder.getArrayAttr(fields), builder.getArrayAttr(types));
     theModule.push_back(dirDef);
+    declareGlobal(dirDef, dirId);
     return mlir::success();
   }
 
@@ -244,12 +288,13 @@ private:
     std::string networkId = ctx->ID()->toString();
     std::string networkOrdering = ctx->getStart()->getText();
 
-    mlir::murphi::NetworkDeclOp netOp =
-        builder.create<mlir::murphi::NetworkDeclOp>(
-            builder.getUnknownLoc(), builder.getStringAttr(networkId),
-            builder.getStringAttr(networkOrdering));
+    mlir::pcc::NetworkDeclOp netOp = builder.create<mlir::pcc::NetworkDeclOp>(
+        builder.getUnknownLoc(), builder.getI64Type(),
+        builder.getStringAttr(networkId),
+        builder.getStringAttr(networkOrdering));
 
     theModule.push_back(netOp);
+    declareGlobal(netOp, networkId);
     return mlir::success();
   }
 
@@ -304,6 +349,8 @@ private:
       }
     }
 
+    builder.setInsertionPoint(theModule);
+
     // create the function op for the state and event
     mlir::pcc::FunctionOp funOp = builder.create<mlir::pcc::FunctionOp>(
         builder.getUnknownLoc(), builder.getStringAttr(machine),
@@ -331,7 +378,6 @@ private:
 
     // add the function to the module
     theModule.push_back(funOp);
-
     return mlir::success();
   }
 
@@ -500,12 +546,9 @@ private:
       // TODO - Hardcoded string parameters
       params.push_back(builder.getStringAttr(paramCtx->getText()));
     }
-
-    return builder.create<mlir::pcc::MsgConstrOp>(builder.getUnknownLoc(),
-                                                  builder.getI64Type(),
-                                                  builder.getArrayAttr(params),
-                                                  builder.getStringAttr(constrId)
-                                                  );
+    return builder.create<mlir::pcc::MsgConstrOp>(
+        builder.getUnknownLoc(), builder.getI64Type(),
+        builder.getArrayAttr(params), builder.getStringAttr(constrId));
   }
 
   // object_expr : object_id | object_func;
@@ -641,39 +684,193 @@ private:
     // If statement
     if (ctx->if_stmt() != nullptr) {
 
-      // Currently only using the first condition i.e. owner==PutM.src
-      // -- TODO -- add more complex conditions
-      ProtoCCParser::Cond_selContext *firstCondition =
-          ctx->if_stmt()->cond_comb()->cond_rel()[0]->cond_sel();
+      // value of the if statement
+      mlir::Value ifValue = mlirGen(ctx->if_stmt()->cond_comb());
+      // mlir::Value ifValue =
+      // builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(), "test",
+      // false); theModule.dump(); create the if op
+      mlir::pcc::ExIfOp exifop =
+          builder.create<mlir::pcc::ExIfOp>(builder.getUnknownLoc(), ifValue);
 
-      std::string lhs = firstCondition->cond_type_expr()[0]->getText();
-      std::string rhs = firstCondition->cond_type_expr()[1]->getText();
+      mlir::Block *thenEntryBlock = new mlir::Block();
+      exifop.getThenRegion().push_back(thenEntryBlock);
+      builder.setInsertionPointToStart(thenEntryBlock);
 
-      std::string comparison =
-          firstCondition->relational_operator()[0]->getText();
-
-      mlir::pcc::IfOp ifOp = builder.create<mlir::pcc::IfOp>(
-          builder.getUnknownLoc(), lhs, comparison, rhs);
-      mlir::Block *ifOpEntry = new mlir::Block();
-      ifOp.getRegion().push_back(ifOpEntry);
-
-      // Set the insertion point inside the block
-      builder.setInsertionPointToStart(ifOpEntry);
-
-      // Add nested Operations
+      // Add nested ops for then
       for (auto expr : ctx->if_stmt()->if_expression()->exprwbreak()) {
         if (mlir::failed(mlirGen(expr))) {
           return mlir::failure();
         }
       }
 
+      builder.create<mlir::pcc::ReturnOp>(builder.getUnknownLoc());
+
+      mlir::Block *elseEntryBlock = new mlir::Block();
+      exifop.getElseRegion().push_back(elseEntryBlock);
+      builder.setInsertionPointToStart(elseEntryBlock);
+
+      // add Nested Ops for else
+      // Currently supports only a single else expression
+      if (ctx->if_stmt()->else_expression().size() == 1) {
+        for (auto expr : ctx->if_stmt()->else_expression()[0]->exprwbreak()) {
+          if (mlir::failed(mlirGen(expr))) {
+            return mlir::failure();
+          }
+        }
+      }
+
+      builder.create<mlir::pcc::ReturnOp>(builder.getUnknownLoc());
+
+      builder.setInsertionPointAfter(exifop);
+
+      // New Statements
+
+      // Currently only using the first condition i.e. owner==PutM.src
+      // -- TODO -- add more complex conditions
+      // ProtoCCParser::Cond_selContext *firstCondition =
+      //     ctx->if_stmt()->cond_comb()->cond_rel()[0]->cond_sel();
+
+      // std::string lhs = firstCondition->cond_type_expr()[0]->getText();
+      // std::string rhs = firstCondition->cond_type_expr()[1]->getText();
+
+      // std::string comparison =
+      //     firstCondition->relational_operator()[0]->getText();
+
+      // mlir::pcc::IfOp ifOp = builder.create<mlir::pcc::IfOp>(
+      //     builder.getUnknownLoc(), lhs, comparison, rhs);
+      // mlir::Block *ifOpEntry = new mlir::Block();
+      // ifOp.getRegion().push_back(ifOpEntry);
+
+      // // Set the insertion point inside the block
+      // builder.setInsertionPointToStart(ifOpEntry);
+
+      // // Add nested Operations
+      // for (auto expr : ctx->if_stmt()->if_expression()->exprwbreak()) {
+      //   if (mlir::failed(mlirGen(expr))) {
+      //     return mlir::failure();
+      //   }
+      // }
+
       // Add a return op
-      builder.create<mlir::pcc::EnfIfOp>(builder.getUnknownLoc());
+      // builder.create<mlir::pcc::EnfIfOp>(builder.getUnknownLoc());
 
       // reset insertion point
-      builder.setInsertionPointAfter(ifOp);
+      // builder.setInsertionPointAfter(ifOp);
     }
     return mlir::success();
+  }
+
+  mlir::Value mlirGen(ProtoCCParser::Cond_combContext *ctx) {
+    std::vector<mlir::Value> values;
+    for (auto rel : ctx->cond_rel()) {
+      values.push_back(mlirGen(rel->cond_sel()));
+    }
+
+    for (auto combOp : ctx->combinatorial_operator()) {
+      mlir::Value lhs = values[0];
+      mlir::Value rhs = values[1];
+      std::string oper = combOp->getText();
+      mlir::Value v = builder.create<mlir::pcc::CompareOp>(
+          builder.getUnknownLoc(), builder.getI1Type(), lhs, rhs,
+          builder.getStringAttr(oper),
+          builder.getStringAttr(utils::getUniqueId()));
+
+      // pop of front twice
+      values.erase(values.begin());
+      values.erase(values.begin());
+
+      // push front
+      values.insert(values.begin(), v);
+    }
+    assert(values.size() > 0 && "Cond Comb Contain at least one value");
+    return values[0];
+  }
+
+  // cond_sel : cond_type_expr (relational_operator cond_type_expr)*;
+  mlir::Value mlirGen(ProtoCCParser::Cond_selContext *ctx) {
+    std::vector<mlir::Value> values;
+
+    for (auto condTexpr : ctx->cond_type_expr()) {
+      values.push_back(mlirGen(condTexpr));
+    }
+
+    for (auto relOp : ctx->relational_operator()) {
+      mlir::Value lhs = values[0];
+      mlir::Value rhs = values[1];
+      std::string oper = relOp->getText();
+      mlir::Value v = builder.create<mlir::pcc::CompareOp>(
+          builder.getUnknownLoc(), builder.getI1Type(), lhs, rhs,
+          builder.getStringAttr(oper),
+          builder.getStringAttr(utils::getUniqueId()));
+
+      // pop of front twice
+      values.erase(values.begin());
+      values.erase(values.begin());
+
+      // push front
+      values.insert(values.begin(), v);
+    }
+    assert(values.size() > 0 && "Cond Select Contain at least one value");
+    return values[0];
+  }
+  // cond_type_expr: cond_types (indv_math_op cond_types)*;
+  mlir::Value mlirGen(ProtoCCParser::Cond_type_exprContext *ctx) {
+    std::vector<mlir::Value> values;
+    for (auto condType : ctx->cond_types()) {
+      values.push_back(mlirGen(condType));
+    }
+    for (auto indvMath : ctx->indv_math_op()) {
+      mlir::Value lhs = values[0];
+      mlir::Value rhs = values[1];
+      std::string oper = indvMath->getText();
+
+      mlir::Value v = builder.create<mlir::pcc::MathOp>(
+          builder.getUnknownLoc(), builder.getI64Type(), lhs, rhs,
+          builder.getStringAttr(oper),
+          builder.getStringAttr(utils::getUniqueId()));
+
+      // pop of front twice
+      values.erase(values.begin());
+      values.erase(values.begin());
+
+      // push front
+      values.insert(values.begin(), v);
+    }
+    assert(values.size() > 0 && "Cond Type Contain at least one value");
+    return values[0];
+  }
+
+  mlir::Value mlirGen(ProtoCCParser::Cond_typesContext *ctx) {
+    if (ctx->INT() != nullptr) {
+      int value = std::atoi(ctx->INT()->getText().c_str());
+      return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
+                                                   utils::getUniqueId(), value);
+    }
+    if (ctx->BOOL() != nullptr) {
+      bool value = ctx->BOOL()->getText() == "true" ? true : false;
+      return builder.create<mlir::pcc::ConstantOp>(builder.getUnknownLoc(),
+                                                   utils::getUniqueId(), value);
+    }
+    if (ctx->NID() != nullptr) {
+      // TODO -- Not sure what to do here
+    }
+    if (ctx->object_expr() != nullptr) {
+      return mlirGenV(ctx->object_expr());
+    }
+    return nullptr;
+  }
+
+  mlir::Value mlirGenV(ProtoCCParser::Object_exprContext *ctx) {
+    if (ctx->object_id() != nullptr) {
+      std::string idValue = ctx->object_id()->getText();
+      return lookup(idValue);
+    } else {
+      assert(false && "this block should not e, "
+                      "builder.getStringAttr(utils::getUniqueId()xecute");
+      auto objFunc = ctx->object_func();
+    }
+    mlir::Value v;
+    return v;
   }
 };
 

@@ -1,0 +1,25 @@
+
+Network{
+    Ordered fwd;
+};
+
+Cache{
+    State I;
+} cache;
+
+Directory{
+    State I;
+} directory;
+
+Architecture cache {
+    Stable {I, M}
+
+    Process(I, load, M){
+        i = 32;
+        if cache.contains() == directory + 1 {
+            t = 31;
+        } else{
+            j = 21;
+        }
+    }
+}

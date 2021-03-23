@@ -1,7 +1,9 @@
 #include "utils/stateUtils.h"
 #include "PCC/Dialect.h"
 #include "PCC/Ops.h"
+#include <random>
 #include <set>
+#include <sstream>
 
 bool utils::isCpuEvent(std::string event) {
   return event == "load" || event == "store" || event == "evict";
@@ -39,7 +41,7 @@ std::vector<std::string> utils::parseStateIntoTokens(std::string s) {
   return tokens;
 }
 
-std::string utils::getLogicalStartState(std::string state){
+std::string utils::getLogicalStartState(std::string state) {
   std::vector<std::string> tokens = utils::parseStateIntoTokens(state);
   return tokens[0] + "_" + tokens[1];
 }
@@ -59,22 +61,35 @@ bool utils::doesHandlerExist(std::string state, std::string msgId,
       found = true;
     }
   });
-  // std::cout << "Found completed with result " << found << std::endl;
   return found;
 }
 
-bool utils::doesStateExist(std::string state, mlir::ModuleOp &mod){
+bool utils::doesStateExist(std::string state, mlir::ModuleOp &mod) {
   bool exists = false;
   mod.walk([&](mlir::pcc::FunctionOp fun) {
-    std::string cur_state = fun.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-    if (cur_state == state){
+    std::string cur_state =
+        fun.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
+    if (cur_state == state) {
       exists = true;
     }
   });
   return exists;
 }
 
-bool utils::isTransientState(std::string state){
+bool utils::isTransientState(std::string state) {
   std::vector<std::string> tokens = utils::parseStateIntoTokens(state);
   return tokens.size() > 2;
+}
+
+std::string utils::getUniqueId() {
+      static auto& chrs = "abcdefghijklmnopqrstuvwxyz";
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  static std::uniform_int_distribution<std::string::size_type> dis(0, sizeof(chrs) - 2);
+
+  std::stringstream ss;
+  for (int i=0; i < 10; i++){
+    ss << chrs[dis(gen)];
+  }
+  return ss.str();
 }
