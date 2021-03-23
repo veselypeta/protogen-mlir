@@ -11,6 +11,8 @@ Directory{
     State I;
 } directory;
 
+Message Request{};
+
 Architecture cache {
     Stable {I, M}
 

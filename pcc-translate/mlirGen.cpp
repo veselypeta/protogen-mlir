@@ -415,9 +415,13 @@ private:
     }
     if (ctx->object_block() != nullptr) {
       // TODO - object instantiation
+      mlirGenV(ctx->object_block()->object_expr());
+      return mlir::success();
     }
     if (ctx->set_block() != nullptr) {
       // TODO - set block
+      mlirGen(ctx->set_block()->set_func());
+      return mlir::success();
     }
     if (ctx->internal_event_block() != nullptr) {
       // TODO - internal event block b
@@ -506,7 +510,8 @@ private:
     }
     // object_expr
     if (ctx->assign_types()->object_expr() != nullptr) {
-      return mlirGen(ctx->assign_types()->object_expr());
+      mlir::Value v = mlirGenV(ctx->assign_types()->object_expr());
+      return declare(v, ctx);
     }
     // math_op : val_range (PLUS | MINUS) val_range;
     if (ctx->assign_types()->math_op() != nullptr) {
@@ -549,17 +554,6 @@ private:
     return builder.create<mlir::pcc::MsgConstrOp>(
         builder.getUnknownLoc(), builder.getI64Type(),
         builder.getArrayAttr(params), builder.getStringAttr(constrId));
-  }
-
-  // object_expr : object_id | object_func;
-  // object_id:  ID;
-  // object_func : ID DOT object_idres (OBRACE object_expr* (COMMA object_expr)*
-  // CBRACE)*;
-  // object_idres: ID | NID;
-  mlir::LogicalResult mlirGen(ProtoCCParser::Object_exprContext *ctx) {
-    // TODO -- implement -- only used when assigning object expr to non aux
-    // state variable
-    return mlir::success();
   }
 
   // transaction : AWAIT OCBRACE trans* CCBRACE;
@@ -860,6 +854,7 @@ private:
     std::string objId = ctx->ID()->getText();
     mlir::Value objValue = lookup(objId);
     std::string funcName = ctx->set_function_types()->getText();
+    // TODO - implement all set_function_types
     if (funcName == "contains") {
       mlir::Value operand = mlirGen(ctx->set_nest()[0]);
       return builder.create<mlir::pcc::SetContainsOp>(
