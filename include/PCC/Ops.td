@@ -269,7 +269,7 @@ def ObjRefOp: PCC_Op<"obj_ref", []>{
         let summary = "reference a global object";
         let description = [{}];
 
-        let arguments = (ins StrAttr:$objId);
+        let arguments = (ins StrAttr:$objId, OptionalAttr<StrAttr>:$ident);
         let results = (outs AnyType);
 }
 
@@ -293,6 +293,22 @@ def MathOp: PCC_Op<"math", []>{
         let description = [{}];
         let arguments = (ins AnyType:$lhs, AnyType:$rhs, StrAttr:$op, StrAttr:$id);
         let results = (outs AnyType);
+}
+
+// Set Operations
+def SetAddOp: PCC_Op<"set_add", []>{
+        let summary = "add an element to a set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyType:$elem);
+        // No results
+}
+// TO implement rest
+
+def SetContainsOp: PCC_Op<"set_contains", []>{
+        let summary = "set contains element";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyType:$elem);
+        let results = (outs I1);
 }
 
 #endif // PCC_OPS

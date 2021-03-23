@@ -14,9 +14,9 @@ Directory{
 Architecture cache {
     Stable {I, M}
 
-    Process(I, load, M){
+    Process(S, Upgrade, M){
         i = 32;
-        if cache.contains() == directory + 1 {
+        if cache.contains(Upgrade.src) == 3 + 1 {
             t = 31;
         } else{
             j = 21;

@@ -722,40 +722,6 @@ private:
       builder.create<mlir::pcc::ReturnOp>(builder.getUnknownLoc());
 
       builder.setInsertionPointAfter(exifop);
-
-      // New Statements
-
-      // Currently only using the first condition i.e. owner==PutM.src
-      // -- TODO -- add more complex conditions
-      // ProtoCCParser::Cond_selContext *firstCondition =
-      //     ctx->if_stmt()->cond_comb()->cond_rel()[0]->cond_sel();
-
-      // std::string lhs = firstCondition->cond_type_expr()[0]->getText();
-      // std::string rhs = firstCondition->cond_type_expr()[1]->getText();
-
-      // std::string comparison =
-      //     firstCondition->relational_operator()[0]->getText();
-
-      // mlir::pcc::IfOp ifOp = builder.create<mlir::pcc::IfOp>(
-      //     builder.getUnknownLoc(), lhs, comparison, rhs);
-      // mlir::Block *ifOpEntry = new mlir::Block();
-      // ifOp.getRegion().push_back(ifOpEntry);
-
-      // // Set the insertion point inside the block
-      // builder.setInsertionPointToStart(ifOpEntry);
-
-      // // Add nested Operations
-      // for (auto expr : ctx->if_stmt()->if_expression()->exprwbreak()) {
-      //   if (mlir::failed(mlirGen(expr))) {
-      //     return mlir::failure();
-      //   }
-      // }
-
-      // Add a return op
-      // builder.create<mlir::pcc::EnfIfOp>(builder.getUnknownLoc());
-
-      // reset insertion point
-      // builder.setInsertionPointAfter(ifOp);
     }
     return mlir::success();
   }
@@ -852,25 +818,64 @@ private:
                                                    utils::getUniqueId(), value);
     }
     if (ctx->NID() != nullptr) {
+      std::cout << "NID : " << ctx->getText() << std::endl;
+      assert(false && "Should return here!");
       // TODO -- Not sure what to do here
     }
     if (ctx->object_expr() != nullptr) {
       return mlirGenV(ctx->object_expr());
     }
-    return nullptr;
+    if (ctx->set_func() != nullptr) {
+      return mlirGen(ctx->set_func());
+    }
+    assert(false && "Cond Types Not Parsed Correctly!");
   }
 
+  // object_expr : object_id | object_func;
   mlir::Value mlirGenV(ProtoCCParser::Object_exprContext *ctx) {
     if (ctx->object_id() != nullptr) {
       std::string idValue = ctx->object_id()->getText();
       return lookup(idValue);
-    } else {
-      assert(false && "this block should not e, "
-                      "builder.getStringAttr(utils::getUniqueId()xecute");
-      auto objFunc = ctx->object_func();
     }
-    mlir::Value v;
-    return v;
+    if (ctx->object_func() != nullptr) {
+      return mlirGenV(ctx->object_func());
+    }
+
+    assert(false && "Must return before getting here!");
+  }
+
+  // object_func : ID DOT object_idres (OBRACE object_expr* (COMMA object_expr)*
+  // CBRACE)*;
+  mlir::Value mlirGenV(ProtoCCParser::Object_funcContext *ctx) {
+    std::string id = ctx->ID()->getText();
+    std::string objectAddress = ctx->object_idres()->getText();
+    assert(ctx->object_expr().size() == 0 &&
+           "NOT Considering Obj Expr with parameters");
+    return builder.create<mlir::pcc::ObjRefOp>(
+        builder.getUnknownLoc(), builder.getI64Type(),
+        builder.getStringAttr(id), builder.getStringAttr(objectAddress));
+  }
+
+  mlir::Value mlirGen(ProtoCCParser::Set_funcContext *ctx) {
+    std::string objId = ctx->ID()->getText();
+    mlir::Value objValue = lookup(objId);
+    std::string funcName = ctx->set_function_types()->getText();
+    if (funcName == "contains") {
+      mlir::Value operand = mlirGen(ctx->set_nest()[0]);
+      return builder.create<mlir::pcc::SetContainsOp>(
+          builder.getUnknownLoc(), builder.getI1Type(), objValue, operand);
+    }
+  }
+
+  // set_nest : set_func | object_expr;
+  mlir::Value mlirGen(ProtoCCParser::Set_nestContext *ctx) {
+    if (ctx->set_func() != nullptr) {
+      return mlirGen(ctx->set_func());
+    }
+    if (ctx->object_expr() != nullptr) {
+      return mlirGenV(ctx->object_expr());
+    }
+    assert(false && "Set Nest must return before getting here!");
   }
 };
 
