@@ -113,6 +113,86 @@ struct IfOpConversion : public OpRewritePattern<mlir::pcc::IfOp> {
   }
 };
 
+struct ExIfOpConversion : public OpRewritePattern<mlir::pcc::ExIfOp> {
+  ExIfOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::ExIfOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::ExIfOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::ExIfOp pccExIfOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.setInsertionPointAfter(pccExIfOp);
+
+    // create the new murphi op
+    mlir::murphi::ExIfOp murphiExIfOp = rewriter.create<mlir::murphi::ExIfOp>(
+        rewriter.getUnknownLoc(), pccExIfOp.getOperand());
+
+    rewriter.createBlock(&murphiExIfOp.getThenRegion());
+    for (mlir::Operation &op :
+         pccExIfOp.getThenRegion().getBlocks().front().getOperations()) {
+      mlir::Operation *clone = op.clone();
+      rewriter.insert(clone);
+    }
+
+    rewriter.createBlock(&murphiExIfOp.elseRegion());
+    for (mlir::Operation &op :
+         pccExIfOp.getElseRegion().getBlocks().front().getOperations()) {
+      mlir::Operation *clone = op.clone();
+      rewriter.insert(clone);
+    }
+
+    rewriter.eraseOp(pccExIfOp);
+
+    return mlir::success();
+  }
+};
+
+struct NetworkDeclOpConversion
+    : public OpRewritePattern<mlir::pcc::NetworkDeclOp> {
+  NetworkDeclOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::NetworkDeclOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::NetworkDeclOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::NetworkDeclOp pccNetDeclOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::NetworkDeclOp>(
+        pccNetDeclOp, pccNetDeclOp.getResult().getType(),
+        pccNetDeclOp.getAttr("id"), pccNetDeclOp.getAttr("ordering"));
+    return mlir::success();
+  }
+};
+
+struct ObjRefOpConvervsion : public OpRewritePattern<mlir::pcc::ObjRefOp> {
+  ObjRefOpConvervsion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::ObjRefOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::ObjRefOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::ObjRefOp pccObjRef,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::ObjRefOp>(
+        pccObjRef, pccObjRef.getResult().getType(),
+        pccObjRef.getAttr("objId").cast<mlir::StringAttr>(),
+        pccObjRef.getAttr("ident").cast<mlir::StringAttr>(),
+        pccObjRef.getAttr("id").cast<mlir::StringAttr>());
+    return mlir::success();
+  }
+};
+
+struct CompareOpConvervsion : public OpRewritePattern<mlir::pcc::CompareOp> {
+  CompareOpConvervsion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::CompareOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::CompareOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::CompareOp pccCompOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::CompareOp>(
+        pccCompOp, pccCompOp.getResult().getType(), pccCompOp.getOperand(0),
+        pccCompOp.getOperand(1),
+        pccCompOp.getAttr("oper").cast<mlir::StringAttr>(),
+        pccCompOp.getAttr("id").cast<mlir::StringAttr>());
+    return mlir::success();
+  }
+};
+
 struct EndIfOpConversion : public OpRewritePattern<mlir::pcc::EnfIfOp> {
   EndIfOpConversion(mlir::MLIRContext *ctx)
       : OpRewritePattern<mlir::pcc::EnfIfOp>(ctx, /*benefit*/ 1){};
@@ -143,21 +223,23 @@ struct FunctionOpConversion : public OpRewritePattern<mlir::pcc::FunctionOp> {
     if (end_state_attr != nullptr) {
       std::string end_state =
           end_state_attr.cast<mlir::StringAttr>().getValue().str();
-      
+
       mlir::Operation *r;
-      for(auto &op : pccFunctionOp.getRegion().getBlocks().front().getOperations()){
+      for (auto &op :
+           pccFunctionOp.getRegion().getBlocks().front().getOperations()) {
         auto rt = mlir::dyn_cast<mlir::pcc::ReturnOp>(op);
         auto mr = mlir::dyn_cast<mlir::murphi::ReleaseMutexOp>(op);
-        if (rt != nullptr){
+        if (rt != nullptr) {
           r = &op;
         }
-        if(mr != nullptr){
+        if (mr != nullptr) {
           r = &op;
           break;
         }
       }
       rewriter.setInsertionPoint(r);
-      rewriter.create<mlir::murphi::SetOp>(rewriter.getUnknownLoc(), "State", end_state);
+      rewriter.create<mlir::murphi::SetOp>(rewriter.getUnknownLoc(), "State",
+                                           end_state);
     }
 
     // set insertion point to end of current function
@@ -216,6 +298,10 @@ void ConvertPCCPass::runOnOperation() {
   patterns.insert<ReturnOpConversion>(&ctx);
   patterns.insert<EndIfOpConversion>(&ctx);
   patterns.insert<IfOpConversion>(&ctx);
+  patterns.insert<ExIfOpConversion>(&ctx);
+  patterns.insert<NetworkDeclOpConversion>(&ctx);
+  patterns.insert<ObjRefOpConvervsion>(&ctx);
+  patterns.insert<CompareOpConvervsion>(&ctx);
   patterns.insert<FunctionOpConversion>(&ctx);
 
   // apply the conversion

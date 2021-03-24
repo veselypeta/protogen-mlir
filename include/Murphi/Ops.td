@@ -114,8 +114,7 @@ def NetworkDeclOp: Murphi_Op<"network_decl", []> {
         }];
 
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
-        
-        
+        let results = (outs AnyType);     
 }
 
 def MsgConstrOp : Murphi_Op<"msg_constr", [NoSideEffect]>{
@@ -170,6 +169,48 @@ def ReleaseMutexOp: Murphi_Op<"release_mutex", []>{
 
         let summary = "end of a trasaction - release the mutex";
         let description = [{}];
+}
+
+def ExIfOp: Murphi_Op<"ifelse", [SingleBlockImplicitTerminator<"murphi::ReturnOp">, NoRegionArguments]>{
+        let summary = "If op that operates on operand";
+        let description = [{}];
+
+        let arguments = (ins I1:$condition);
+
+        let regions = (region 
+                SizedRegion<1>:$thenRegion,
+                AnyRegion:$elseRegion
+                );
+
+        let builders = [
+                OpBuilderDAG<(ins "Value":$cond, "bool":$withElseRegion)>
+        ];
+
+        let extraClassDeclaration = [{
+                mlir::Region &getThenRegion(){
+                        return getRegion(0);
+                }
+                mlir::Region &getElseRegion(){
+                        return getRegion(1);
+                }
+        }];
+
+}
+
+def ObjRefOp: Murphi_Op<"obj_ref", []>{
+        let summary = "reference a global object";
+        let description = [{}];
+
+        let arguments = (ins StrAttr:$objId, StrAttr:$ident, StrAttr:$id);
+        let results = (outs AnyType);
+}
+
+def CompareOp: Murphi_Op<"compare", []>{
+        let summary = "compare two SSA values";
+        let description = [{}];
+
+        let arguments = (ins AnyType:$lhs, AnyType:$rhs, StrAttr:$oper, StrAttr:$id);
+        let results = (outs I1);
 }
 
 
