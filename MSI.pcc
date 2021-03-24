@@ -192,20 +192,33 @@ Architecture directory {
     }
 
     Process(S, Upgrade){
+       //if cache.contains(Upgrade.src){
+       //    cache.del(Upgrade.src);
+       //    msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
+       //    resp.send(msg);
+       //    State=M;
+       //    break;
+       //} else {
+       //    msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
+       //    resp.send(msg);
+       //    State=M;
+       //    break;
+       //}
+       //msg = Ack(Inv, Upgrade.src, Upgrade.src);
+       //fwd.mcast(msg, cache);
+       //owner = Upgrade.src;
+       //cache.clear();
+
        if cache.contains(Upgrade.src){
            cache.del(Upgrade.src);
-           msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
-           resp.send(msg);
-           State=M;
-           break;
-       } else {
-           msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
-           resp.send(msg);
-           State=M;
-           break;
        }
-       msg = Ack(Inv, Upgrade.src, Upgrade.src);
-       fwd.mcast(msg, cache);
+       msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
+       resp.send(msg);
+       State=M;
+
+       msg2 = Ack(Inv, Upgrade.src, Upgrade.src);
+
+       fwd.mcast(msg2, cache);
        owner = Upgrade.src;
        cache.clear();
     }
@@ -214,7 +227,6 @@ Architecture directory {
        msg = Resp(Put_Ack, ID, PutS.src, cl);
        fwd.send(msg);
        cache.del(PutS.src);
-
        if cache.count() == 0{
             State=I;
             break;

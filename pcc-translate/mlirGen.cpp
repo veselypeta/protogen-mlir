@@ -374,7 +374,7 @@ private:
     // Insert a return and reset the insertion point
     mlir::Value v;
     builder.create<mlir::pcc::ReturnOp>(builder.getUnknownLoc(), v);
-    builder.setInsertionPointAfter(funOp);
+    // builder.setInsertionPointAfter(funOp);
 
     // add the function to the module
     theModule.push_back(funOp);
@@ -399,6 +399,9 @@ private:
     }
     if (ctx->transaction() != nullptr) {
       return mlirGen(ctx->transaction());
+    }
+    if (ctx->network_mcast() != nullptr) {
+      return mlirGen(ctx->network_mcast());
     }
     // TODO -- add support for network_mcast & network_bcast
     return mlir::success();
@@ -513,6 +516,12 @@ private:
       mlir::Value v = mlirGenV(ctx->assign_types()->object_expr());
       return declare(v, ctx);
     }
+
+    // set_func
+    if (ctx->assign_types()->set_func() != nullptr) {
+      mlir::Value v = mlirGen(ctx->assign_types()->set_func());
+      return declare(v, ctx);
+    }
     // math_op : val_range (PLUS | MINUS) val_range;
     if (ctx->assign_types()->math_op() != nullptr) {
       mlir::Value lhs = mlirGen(ctx->assign_types()->math_op()->val_range()[0]);
@@ -621,7 +630,7 @@ private:
       return mlirGen(ctx->network_send());
     }
     if (ctx->network_mcast() != nullptr) {
-      // TODO - implement
+      return mlirGen(ctx->network_mcast());
     }
     if (ctx->network_bcast() != nullptr) {
       // TODO - implement
@@ -669,6 +678,11 @@ private:
     }
     if (ctx->transaction() != nullptr) {
       // TODO -- Currently don't suuport transactions within if statement
+      assert(false &&
+             "Currently don't suuport transactions within if statement");
+    }
+    if (ctx->network_mcast() != nullptr) {
+      return mlirGen(ctx->network_mcast());
     }
     // TODO - other paths are currently not supported
     return mlir::success();
@@ -829,6 +843,13 @@ private:
   mlir::Value mlirGenV(ProtoCCParser::Object_exprContext *ctx) {
     if (ctx->object_id() != nullptr) {
       std::string idValue = ctx->object_id()->getText();
+      if (isAuxStateRef(idValue)) {
+        return builder.create<mlir::pcc::ObjRefOp>(
+            builder.getUnknownLoc(), builder.getI64Type(),
+            builder.getStringAttr(cur_mach), builder.getStringAttr(idValue),
+            builder.getStringAttr(utils::getUniqueId()));
+      }
+      // check the aux state as well
       return lookup(idValue);
     }
     if (ctx->object_func() != nullptr) {
@@ -847,19 +868,51 @@ private:
            "NOT Considering Obj Expr with parameters");
     return builder.create<mlir::pcc::ObjRefOp>(
         builder.getUnknownLoc(), builder.getI64Type(),
-        builder.getStringAttr(id), builder.getStringAttr(objectAddress));
+        builder.getStringAttr(id), builder.getStringAttr(objectAddress),
+        builder.getStringAttr(utils::getUniqueId()));
   }
 
+  // set_func : ID DOT set_function_types OBRACE set_nest* CBRACE;
   mlir::Value mlirGen(ProtoCCParser::Set_funcContext *ctx) {
     std::string objId = ctx->ID()->getText();
-    mlir::Value objValue = lookup(objId);
+    assert(isAuxStateRef(objId) && "Can only reference in aux state");
+    mlir::Value objValue = builder.create<mlir::pcc::ObjRefOp>(
+        builder.getUnknownLoc(), builder.getI64Type(),
+        builder.getStringAttr("self"), builder.getStringAttr(objId),
+        builder.getStringAttr(utils::getUniqueId()));
     std::string funcName = ctx->set_function_types()->getText();
     // TODO - implement all set_function_types
     if (funcName == "contains") {
       mlir::Value operand = mlirGen(ctx->set_nest()[0]);
       return builder.create<mlir::pcc::SetContainsOp>(
-          builder.getUnknownLoc(), builder.getI1Type(), objValue, operand);
+          builder.getUnknownLoc(), builder.getI1Type(), objValue, operand,
+          builder.getStringAttr(utils::getUniqueId()));
     }
+    if (funcName == "add") {
+      mlir::Value operand = mlirGen(ctx->set_nest()[0]);
+      builder.create<mlir::pcc::SetAddOp>(builder.getUnknownLoc(), objValue,
+                                          operand);
+      return nullptr;
+    }
+    if (funcName == "del") {
+      mlir::Value operand = mlirGen(ctx->set_nest()[0]);
+      builder.create<mlir::pcc::SetDelOp>(builder.getUnknownLoc(), objValue,
+                                          operand);
+      return nullptr;
+    }
+
+    if (funcName == "clear") {
+      builder.create<mlir::pcc::SetClearOp>(builder.getUnknownLoc(), objValue);
+      return nullptr;
+    }
+
+    if (funcName == "count") {
+      return builder.create<mlir::pcc::SetCountOp>(
+          builder.getUnknownLoc(), builder.getI64Type(), objValue,
+          builder.getStringAttr(utils::getUniqueId()));
+    }
+
+    assert(false && "Operations not implemented");
   }
 
   // set_nest : set_func | object_expr;
@@ -871,6 +924,58 @@ private:
       return mlirGenV(ctx->object_expr());
     }
     assert(false && "Set Nest must return before getting here!");
+  }
+
+  // network_mcast: ID DOT mcast_function OBRACE ID COMMA ID CBRACE SEMICOLON;
+  mlir::LogicalResult mlirGen(ProtoCCParser::Network_mcastContext *ctx) {
+    std::string netId = ctx->ID()[0]->getText();
+    std::string msgId = ctx->ID()[1]->getText();
+    std::string setId = ctx->ID()[2]->getText();
+
+    assert(isAuxStateRef(setId) && "Set has to reference in aux state");
+
+    mlir::Value netRef = lookup(netId);
+    mlir::Value msgRef = lookup(msgId);
+    mlir::Value setRef = builder.create<mlir::pcc::ObjRefOp>(
+        builder.getUnknownLoc(), builder.getI64Type(),
+        builder.getStringAttr("self"), builder.getStringAttr(setId),
+        builder.getStringAttr(utils::getUniqueId()));
+
+    builder.create<mlir::pcc::MCastOp>(builder.getUnknownLoc(), netRef, msgRef,
+                                       setRef);
+    return mlir::success();
+  }
+
+  // is referencing the aux state
+  bool isAuxStateRef(std::string ref) {
+    // lookup the current machine
+    mlir::Value v = lookup(cur_mach);
+    mlir::Operation *op = v.getDefiningOp();
+
+    if (mlir::dyn_cast<mlir::murphi::CacheDefOp>(op) != nullptr) {
+      mlir::murphi::CacheDefOp cacheDef =
+          mlir::dyn_cast<mlir::murphi::CacheDefOp>(op);
+      mlir::ArrayAttr cacheFields =
+          cacheDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      for (auto f : cacheFields) {
+        std::string field = f.cast<mlir::StringAttr>().getValue().str();
+        if (field == ref) {
+          return true;
+        }
+      }
+    } else {
+      mlir::murphi::DirectoryDefOp dirDef =
+          mlir::dyn_cast<mlir::murphi::DirectoryDefOp>(op);
+      mlir::ArrayAttr directoryFields =
+          dirDef.getAttr("fields").cast<mlir::ArrayAttr>();
+      for (auto f : directoryFields) {
+        std::string field = f.cast<mlir::StringAttr>().getValue().str();
+        if (field == ref) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 };
 

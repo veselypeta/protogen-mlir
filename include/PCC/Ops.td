@@ -47,12 +47,6 @@ def NetworkDeclOp: PCC_Op<"network_decl", []> {
         let arguments = (ins AnyAttr:$id, AnyAttr:$ordering);
         let results = (outs AnyType);
 
-        // let builders = [
-        //         OpBuilderDAG<(ins "std::string":$netId, "std::string":$ordering), [{
-        //                 build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext(), ordering), $_builder.getStringAttr(netId), $_builder.getStringAttr(ordering));
-        //         }]>
-        // ];
-
 }
 
 def ReturnOp : PCC_Op<"return", [NoSideEffect, Terminator]> {
@@ -80,7 +74,6 @@ def ReturnOp : PCC_Op<"return", [NoSideEffect, Terminator]> {
   ];
 }
 
-
 def FunctionOp : PCC_Op<"function">{
         let summary = "represent a PCC function";
         let description = [{}];
@@ -106,7 +99,6 @@ def FunctionOp : PCC_Op<"function">{
         ];
 }
 
-
 def SendOp: PCC_Op<"send", []>{
         let summary = "Operation to send a message along a network";
 
@@ -127,7 +119,6 @@ def SendOp: PCC_Op<"send", []>{
         let arguments = (ins AnyType:$msg, AnyAttr:$netId);
 }
 
-// Add ConstantLike
 def MsgConstrOp : PCC_Op<"msg_constr", [NoSideEffect]>{
         let summary = "message constructor";
         let description = [{
@@ -143,28 +134,6 @@ def MsgConstrOp : PCC_Op<"msg_constr", [NoSideEffect]>{
 
         let arguments = (ins ArrayAttr:$params, AnyAttr:$msgType);
         let results = (outs AnyType:$out);
-
-        // let arguments = (ins ArrayAttr:$value);
-        // let results = (outs PCC_MsgType:$output);
-}
-
-// Add ConstantLike
-def GlobalNetworkOp : PCC_Op<"global_network", []>{
-
-        let summary = "get a reference to a global network";
-        let description = [{
-                This Operation returns and SSA value that references
-                a global network
-        }];
-
-        let arguments = (ins StrAttr:$netId);
-        let results = (outs PCC_NetType);
-        
-        let builders = [
-                OpBuilderDAG<(ins "std::string":$netId), [{
-                        build($_builder, $_state, mlir::pcc::NetType::get($_builder.getContext(), "Unordered"), $_builder.getStringAttr(netId));
-                }]>
-        ];
 }
 
 def AwaitOp: PCC_Op<"await"> {
@@ -269,10 +238,9 @@ def ObjRefOp: PCC_Op<"obj_ref", []>{
         let summary = "reference a global object";
         let description = [{}];
 
-        let arguments = (ins StrAttr:$objId, OptionalAttr<StrAttr>:$ident);
+        let arguments = (ins StrAttr:$objId, StrAttr:$ident, StrAttr:$id);
         let results = (outs AnyType);
 }
-
 
 def EnfIfOp: PCC_Op<"end_if", [Terminator, HasParent<"IfOp">]>{
         let summary = "end if op";
@@ -295,20 +263,44 @@ def MathOp: PCC_Op<"math", []>{
         let results = (outs AnyType);
 }
 
-// Set Operations
 def SetAddOp: PCC_Op<"set_add", []>{
         let summary = "add an element to a set";
         let description = [{}];
         let arguments = (ins AnyType:$set, AnyType:$elem);
-        // No results
 }
-// TO implement rest
 
 def SetContainsOp: PCC_Op<"set_contains", []>{
         let summary = "set contains element";
         let description = [{}];
-        let arguments = (ins AnyType:$set, AnyType:$elem);
+        let arguments = (ins AnyType:$set, AnyType:$elem, AnyAttr:$id);
         let results = (outs I1);
 }
+
+def SetDelOp: PCC_Op<"set_del", []>{
+        let summary = "delete element from set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyType:$elem);
+}
+
+def SetCountOp: PCC_Op<"set_count", []>{
+        let summary = "count the elements in the set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyAttr:$id);
+        let results = (outs I64);
+}
+
+def SetClearOp: PCC_Op<"set_clear", []>{
+        let summary = "clear the set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set);
+}
+
+
+def MCastOp: PCC_Op<"mcast", []>{
+        let summary = "memory cast operation";
+        let description = [{}];
+        let arguments = (ins AnyType:$netId, AnyType:$msg, AnyType:$set);
+}
+
 
 #endif // PCC_OPS
