@@ -7,21 +7,21 @@
 //    State I;
 //} cache;
 //
-//Directory{
-//    State I;
-//} directory;
+Directory{
+    State I;
+    set[NrCaches] ID cache;
+} directory;
 //
 //Message Request{};
 
-Architecture cache {
+Architecture directory {
     Stable {I, M}
 
     Process(S, Upgrade, M){
-        i = 32;
-        await {
-            when GetM:
-                j = 32 + 21;
-                break;
+        if cache.contains(Upgrade.src) {
+            cache.del(Upgrade.src);
+            break;
         }
+        State = I;
     }
 }

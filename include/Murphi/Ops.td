@@ -182,7 +182,7 @@ def ReleaseMutexOp: Murphi_Op<"release_mutex", []>{
         let description = [{}];
 }
 
-def ExIfOp: Murphi_Op<"ifelse", [SingleBlockImplicitTerminator<"murphi::ReturnOp">, NoRegionArguments]>{
+def ExIfOp: Murphi_Op<"ifelse", []>{
         let summary = "If op that operates on operand";
         let description = [{}];
 

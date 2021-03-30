@@ -135,23 +135,20 @@ struct ExIfOpConversion : public OpRewritePattern<mlir::pcc::ExIfOp> {
                                       PatternRewriter &rewriter) const final {
     rewriter.setInsertionPointAfter(pccExIfOp);
 
+    mlir::pcc::ExIfOp ifOpClone = pccExIfOp.clone();
+
     // create the new murphi op
     mlir::murphi::ExIfOp murphiExIfOp = rewriter.create<mlir::murphi::ExIfOp>(
         rewriter.getUnknownLoc(), pccExIfOp.getOperand());
 
-    rewriter.createBlock(&murphiExIfOp.getThenRegion());
-    for (mlir::Operation &op :
-         pccExIfOp.getThenRegion().getBlocks().front().getOperations()) {
-      mlir::Operation *clone = op.clone();
-      rewriter.insert(clone);
-    }
+    // inline the regions
+    rewriter.inlineRegionBefore(ifOpClone.getThenRegion(),
+                                murphiExIfOp.getThenRegion(),
+                                murphiExIfOp.getThenRegion().end());
 
-    rewriter.createBlock(&murphiExIfOp.elseRegion());
-    for (mlir::Operation &op :
-         pccExIfOp.getElseRegion().getBlocks().front().getOperations()) {
-      mlir::Operation *clone = op.clone();
-      rewriter.insert(clone);
-    }
+    rewriter.inlineRegionBefore(ifOpClone.getElseRegion(),
+                                murphiExIfOp.getElseRegion(),
+                                murphiExIfOp.getElseRegion().end());
 
     rewriter.eraseOp(pccExIfOp);
 
@@ -287,6 +284,10 @@ struct SetDelOpConversion : public OpRewritePattern<mlir::pcc::SetDelOp> {
 
   mlir::LogicalResult matchAndRewrite(mlir::pcc::SetDelOp pccSetDelOp,
                                       PatternRewriter &rewriter) const final {
+    assert(pccSetDelOp.getOperand(0) != nullptr &&
+           "SetDelOp operand is nullptr");
+    assert(pccSetDelOp.getOperand(1) != nullptr &&
+           "SetDelOp operand is nullptr");
     rewriter.replaceOpWithNewOp<mlir::murphi::SetDelOp>(
         pccSetDelOp, pccSetDelOp.getOperand(0), pccSetDelOp.getOperand(1));
     return mlir::success();
@@ -437,14 +438,14 @@ void ConvertPCCPass::runOnOperation() {
   patterns.insert<SetContainsOpConversion>(&ctx);
   patterns.insert<SetCountOpConversion>(&ctx);
   patterns.insert<SetClearOpConversion>(&ctx);
-  patterns.insert<SetDelOpConversion>(&ctx);
+  // patterns.insert<SetDelOpConversion>(&ctx);
   patterns.insert<MCastOpConversion>(&ctx);
   patterns.insert<FunctionOpConversion>(&ctx);
 
   // apply the conversion
-  auto module = getOperation();
+  auto theModule = getOperation();
   if (mlir::failed(
-          mlir::applyFullConversion(module, target, std::move(patterns)))) {
+          mlir::applyFullConversion(theModule, target, std::move(patterns)))) {
     mlir::Pass::signalPassFailure();
   }
 }

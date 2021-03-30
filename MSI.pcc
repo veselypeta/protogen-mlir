@@ -171,81 +171,79 @@ Architecture directory {
 
     Stable{I, S, M}
 
-    // I ////////////////////////////////////////////////////////
-    Process(I, GetS, S){
-       cache.add(GetS.src);
-       msg = Resp(GetS_Ack, ID, GetS.src, cl);
+   // I ////////////////////////////////////////////////////////
+   Process(I, GetS, S){
+      cache.add(GetS.src);
+      msg = Resp(GetS_Ack, ID, GetS.src, cl);
+      resp.send(msg);
+   }
+
+   Process(I, GetM, M){
+       msg = RespAck(GetM_Ack_AD, ID, GetM.src, cl, cache.count());
        resp.send(msg);
-    }
-
-    Process(I, GetM, M){
-        msg = RespAck(GetM_Ack_AD, ID, GetM.src, cl, cache.count());
-        resp.send(msg);
-        owner = GetM.src;
-    }
-
-    // S ////////////////////////////////////////////////////////
-    Process(S, GetS){
-       cache.add(GetS.src);
-       msg = Resp(GetS_Ack, ID, GetS.src, cl);
-       resp.send(msg);
-    }
-
-    Process(S, Upgrade){
-       if cache.contains(Upgrade.src){
-           cache.del(Upgrade.src);
-       }
-       msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
-       resp.send(msg);
-       State=M;
-       msg2 = Ack(Inv, Upgrade.src, Upgrade.src);
-       fwd.mcast(msg2, cache);
-       owner = Upgrade.src;
-       cache.clear();
-    }
-
-    Process(S, PutS){
-       msg = Resp(Put_Ack, ID, PutS.src, cl);
-       fwd.send(msg);
-       cache.del(PutS.src);
-       if cache.count() == 0{
-            State=I;
-            break;
-       }
-    }
-
-    // M ////////////////////////////////////////////////////////
-    Process(M, GetS){
-       msg = Request(Fwd_GetS, GetS.src, owner);
-       fwd.send(msg);
-       cache.add(GetS.src);
-       cache.add(owner);
-
-       await{
-            when WB:
-                if WB.src == owner{
-                    cl = WB.cl;
-                    State=S;
-                }
-       }
-
-    }
-
-    Process(M, GetM){
-       msg = Request(Fwd_GetM, GetM.src, owner);
-       fwd.send(msg);
        owner = GetM.src;
-    }
+   }
 
-    Process(M, PutM){
-       msg = Ack(Put_Ack, ID, PutM.src);
-       fwd.send(msg);
-       cache.del(PutM.src);
+   // S ////////////////////////////////////////////////////////
+   Process(S, GetS){
+      cache.add(GetS.src);
+      msg = Resp(GetS_Ack, ID, GetS.src, cl);
+      resp.send(msg);
+   }
+//
+//   Process(S, Upgrade){
+//      if cache.contains(Upgrade.src){
+//          cache.del(Upgrade.src);
+//      }
+//      msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
+//      resp.send(msg);
+//      State=M;
+//      msg2 = Ack(Inv, Upgrade.src, Upgrade.src);
+//      fwd.mcast(msg2, cache);
+//      owner = Upgrade.src;
+//      cache.clear();
+//   }
 
-       if owner == PutM.src{
-            cl = PutM.cl;
-            State=I;
-       }
-    }
+   Process(S, PutS){
+      msg = Resp(Put_Ack, ID, PutS.src, cl);
+      fwd.send(msg);
+      cache.del(PutS.src);
+      if cache.count() == 0{
+           State=I;
+           break;
+      }
+   }
 
-}
+   // M ////////////////////////////////////////////////////////
+   Process(M, GetS){
+      msg = Request(Fwd_GetS, GetS.src, owner);
+      fwd.send(msg);
+      cache.add(GetS.src);
+      cache.add(owner);
+
+      await{
+           when WB:
+               if WB.src == owner{
+                   cl = WB.cl;
+                   State=S;
+               }
+      }
+
+   }
+
+   Process(M, GetM){
+      msg = Request(Fwd_GetM, GetM.src, owner);
+      fwd.send(msg);
+      owner = GetM.src;
+   }
+
+   Process(M, PutM){
+      msg = Ack(Put_Ack, ID, PutM.src);
+      fwd.send(msg);
+      cache.del(PutM.src);
+
+      if owner == PutM.src{
+           cl = PutM.cl;
+           State=I;
+      }
+   }

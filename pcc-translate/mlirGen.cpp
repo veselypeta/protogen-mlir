@@ -832,7 +832,6 @@ private:
                                                    utils::getUniqueId(), value);
     }
     if (ctx->NID() != nullptr) {
-      std::cout << "NID : " << ctx->getText() << std::endl;
       assert(false && "Should return here!");
       // TODO -- Not sure what to do here
     }
