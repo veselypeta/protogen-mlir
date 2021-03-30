@@ -1,6 +1,38 @@
 #include "Target/MurphiTemplates.h"
 #include <string>
 
+std::string MURPHI_PROGRAM = "\
+\n\
+{0}\
+\n\n\
+{1}\
+\n\n\
+{2}\
+\n\
+";
+
+std::string MURPHI_constdecl = "\
+const \
+\n\
+{0}\
+";
+
+std::string MURPHI_typedecl = "\
+type \
+\n\
+{0}\
+";
+
+std::string MURPHI_vardecl = "\
+var \
+\n\
+{0}\
+";
+
+std::string constdecl_template = "\
+\t{0} : {1};\n\
+";
+
 std::string MACH_cache = "\
 MACH_cache: record \n\
   CL: array[Address] of ENTRY_cache;\n\
@@ -162,6 +194,25 @@ end;\n\
 \n\
 ";
 
+std::string machine_message_handler_procedure_template = "\
+\n\
+\n\
+procedure handle_{0}_{1}(inmsg:Message; m:OBJSET_{2}); \n\
+\tvar msg: Message;\n\
+\n\
+{3}\n\
+\n\
+begin \n\
+  alias adr: inmsg.adr do \n\
+  alias {2}_entry: i_{2}[m].CL[adr] do\n\
+\n\
+{4} \n\
+\n\
+  endalias;\n\
+  endalias;\n\
+end;\n\
+";
+
 std::string switch_statement_template = "\
 switch {0}\n\
 {1}\n\
@@ -178,7 +229,6 @@ endswitch;\n\
 std::string case_statement_template = "\
 case {0}: \n\
 {1}\n\
-\n\
 ";
 
 std::string cache_ruleset_template = "\
@@ -276,11 +326,11 @@ endfor;\n\
 ";
 
 std::string msg_constr_template = "\
-msg := {0}(adr, {1});\n\
+{2} := {0}(adr, {1});\n\
 ";
 
 std::string call_send_template = "\
-Send_{0}(msg); \n\
+Send_{0}({1}); \n\
 ";
 
 std::string aux_state_assignment = "\
@@ -294,6 +344,54 @@ if {0} {1} {2} then \n\
 \n\
 endif\n\
 ";
+
+std::string if_else_statement_template = "\
+if {0} then\n\
+\n\
+{1}\
+\n\
+else\n\
+\n\
+{2}\
+\n\
+endif;\n\
+";
+
+std::string local_var_declaration_template = "\
+\tvar {0} : {1};\n\
+";
+
+std::string general_variable_assignment_template = "\
+{0} := {1};\n\
+";
+
+/// Murphi Program ///
+std::string make_murphi_program(std::string decls, std::string procedures,
+                                std::string rules) {
+  return fmt::format(MURPHI_PROGRAM, decls, procedures, rules);
+}
+
+/// --- Declarations --- ///
+
+// constdecl
+std::string make_const_decl(std::string consts) {
+  return fmt::format(MURPHI_constdecl, consts);
+}
+
+// typedecl
+std::string make_type_decl(std::string types) {
+  return fmt::format(MURPHI_typedecl, types);
+}
+
+// vardecl
+std::string make_var_decl(std::string vars) {
+  return fmt::format(MURPHI_vardecl, vars);
+}
+
+// helpers
+std::string make_tl_constant(std::string id, int value) {
+  return fmt::format(constdecl_template, id, std::to_string(value));
+}
 
 std::string mutex_helper_function(std::string funId, std::string mutVar,
                                   std::string mutVal) {
@@ -393,7 +491,7 @@ std::string start_state_ordered_network(std::string netId) {
 }
 
 // Generate the StartState for mutex definition
-std::string mutex_start_state(std::string mutId){
+std::string mutex_start_state(std::string mutId) {
   return fmt::format(mutex_start_state_template, mutId);
 }
 
@@ -404,12 +502,12 @@ std::string write_serialization() { return write_serialization_template; }
 // Operations Templates ///
 /// =================== ///
 
-std::string message_constructor(std::string constrId, std::string parameters) {
-  return fmt::format(msg_constr_template, constrId, parameters);
+std::string message_constructor_call(std::string constrId, std::string parameters, std::string varAssignId) {
+  return fmt::format(msg_constr_template, constrId, parameters, varAssignId);
 }
 
-std::string send_message(std::string netId) {
-  return fmt::format(call_send_template, netId);
+std::string send_message(std::string netId, std::string msgId) {
+  return fmt::format(call_send_template, netId, msgId);
 }
 
 std::string assign_value(std::string machId, std::string id,
@@ -420,4 +518,27 @@ std::string assign_value(std::string machId, std::string id,
 std::string if_statement(std::string lhs, std::string condition,
                          std::string rhs, std::string nestedOps) {
   return fmt::format(if_statement_templates, lhs, condition, rhs, nestedOps);
+}
+
+// Message Handler Helper Function
+std::string make_handle_message_procedure(std::string curState,
+                                          std::string inMsg,
+                                          std::string curMach,
+                                          std::string localVars,
+                                          std::string funcBody) {
+  return fmt::format(machine_message_handler_procedure_template, curState,
+                     inMsg, curMach, localVars, funcBody);
+}
+
+std::string make_local_var_decl(std::string id, std::string type){
+  return fmt::format(local_var_declaration_template, id, type);
+}
+
+std::string make_if_else_statement(std::string boolRef, std::string thenOps, std::string elseOps){
+  return fmt::format(if_else_statement_template, boolRef, thenOps, elseOps);
+}
+
+
+std::string make_general_assignment_statement(std::string assignmentId, std::string assignmentValue){
+  return fmt::format(general_variable_assignment_template, assignmentId, assignmentValue);
 }

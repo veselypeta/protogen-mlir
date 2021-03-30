@@ -1,6 +1,8 @@
 #pragma once
+#include "Target/MurphiTemplates.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "Murphi/Dialect.h"
 #include <cstdarg>
 #include <exception>
 #include <iostream>
@@ -15,6 +17,12 @@ class LanguageConstruct {
 public:
   virtual std::string getDefiningId() = 0;
   virtual void print(mlir::raw_ostream &stream) = 0;
+  std::string getAsStr() {
+    std::string s;
+    llvm::raw_string_ostream ss(s);
+    print(ss);
+    return ss.str();
+  };
   virtual ~LanguageConstruct(){};
 };
 
@@ -36,7 +44,7 @@ public:
       : id{enumId}, enums{enumValues} {}
   virtual std::string getDefiningId() { return id; };
   virtual void print(mlir::raw_ostream &stream);
-  std::vector<std::string> getElements(){return enums;}
+  std::vector<std::string> getElements() { return enums; }
 
 private:
   std::string id;
@@ -170,15 +178,15 @@ private:
 
 class MutexHelperFunction : public LanguageConstruct {
 public:
-  MutexHelperFunction(std::string id, bool mutValue, LanguageConstruct *clVar): id{id}, mutValue{mutValue}, clVar{clVar} {}
+  MutexHelperFunction(std::string id, bool mutValue, LanguageConstruct *clVar)
+      : id{id}, mutValue{mutValue}, clVar{clVar} {}
   virtual void print(mlir::raw_ostream &stream);
   virtual std::string getDefiningId() { return id; }
 
 private:
-std::string id;
-bool mutValue;
-LanguageConstruct *clVar;
-
+  std::string id;
+  bool mutValue;
+  LanguageConstruct *clVar;
 };
 
 class SendFunction : public LanguageConstruct {
@@ -193,9 +201,36 @@ private:
   NetworkOrder ordering;
 };
 
+class MachineMessageHanlderFunc : public LanguageConstruct {
+public:
+  MachineMessageHanlderFunc(std::string state, std::string msgId,
+                            std::string mach, mlir::murphi::FunctionOp &func)
+      : state{state}, msgId{msgId}, mach{mach} {
+        generateBody(func);
+      }
+
+  virtual void print(mlir::raw_ostream &stream);
+  virtual std::string getDefiningId() {
+    return "handle_" + state + "_" + msgId;
+  }
+  void generateBody(mlir::murphi::FunctionOp &func);
+  std::string getCallCode() {
+    return getDefiningId() + "(inmsg, m);\n";
+  }
+  virtual ~MachineMessageHanlderFunc() {
+    localVars.clear(); // Delete all the pointers
+  }
+
+  std::string state;
+  std::string msgId;
+  std::string localVars;
+  std::string procBody;
+  std::string mach;
+};
+
 class MessageHandler {
 public:
-  MessageHandler(std::string msgId): messageId{msgId} {}
+  MessageHandler(std::string msgId) : messageId{msgId} {}
   std::string to_string();
   void add_operation_text(std::string text);
 
@@ -217,9 +252,10 @@ private:
 
 class MachineHandlerFunction {
 public:
-  MachineHandlerFunction(std::string machName): machName{machName} {}
+  MachineHandlerFunction(std::string machName) : machName{machName} {}
   void print(mlir::raw_ostream &stream);
   void addStateHandler(StateHandler handler);
+
 private:
   std::vector<StateHandler> stateHandlers;
   std::string machName;
@@ -274,17 +310,12 @@ private:
 };
 
 class StartState {
-  public:
-    void print(mlir::raw_ostream &stream){
-      stream << startStateText;
-    }
-    void addText(std::string text){
-      startStateText += text;
-    }
-  
-  private:
-  std::string startStateText;
+public:
+  void print(mlir::raw_ostream &stream) { stream << startStateText; }
+  void addText(std::string text) { startStateText += text; }
 
+private:
+  std::string startStateText;
 };
 
 class Module {
@@ -298,10 +329,12 @@ public:
   bool addBoilerplate(target::murphi::Boilerplate *boilerplate);
   bool addVariable(target::murphi::Variable *var);
   bool addMessageConstructor(target::murphi::MessageContructor *msgConstr);
-  bool addMutexHelperFunction(target::murphi::MutexHelperFunction *helperFunction);
+  bool
+  addMutexHelperFunction(target::murphi::MutexHelperFunction *helperFunction);
   bool addSendFunction(target::murphi::SendFunction *sendFunc);
   bool
   addCacheCPUEventFunction(target::murphi::CacheCPUEventFunction *cpuEventFunc);
+  bool addMessageHanlderFunction(target::murphi::MachineMessageHanlderFunc f);
   bool addMachineHandleFunction(target::murphi::MachineHandlerFunction f);
   bool setCacheRuleset(target::murphi::CacheRuleset cr) {
     this->cacheRuleset = cr;
@@ -364,12 +397,96 @@ private:
   std::vector<SendFunction *> sendFunctions;
 
   std::vector<CacheCPUEventFunction *> cacheCpuEventFunctions;
+  std::vector<MachineMessageHanlderFunc> messageHandlerFunctions;
   std::vector<MachineHandlerFunction> machHandleFuncs;
 
   StartState startState;
 
   CacheRuleset cacheRuleset;
   std::vector<NetworkRuleset> netRulesets;
+
+  // methods for implementing printing easier
+  std::string getModule() {
+    return make_murphi_program(getDeclarations(), getProcedures(), getRules());
+  }
+
+  std::string getDeclarations() {
+    return getConstDeclarations() + getTypeDeclarations() +
+           getVarDeclarations();
+  }
+
+  std::string getConstDeclarations() {
+    std::string d;
+    for (auto c : this->constantsList) {
+      d += c->getAsStr();
+    }
+    return make_const_decl(d);
+  }
+
+  std::string getTypeDeclarations() {
+    std::string t;
+    for (auto td : typeDefs) {
+      t += td->getAsStr();
+    }
+    return make_type_decl(t);
+  }
+
+  std::string getVarDeclarations() {
+    std::string v;
+    for (auto var : variables) {
+      v += var->getAsStr();
+    }
+    return make_var_decl(v);
+  }
+
+  // Procedures
+  std::string getProcedures() {
+    std::string p;
+    llvm::raw_string_ostream ss(p);
+
+    // message constructors
+    for (auto mc : msgContructors) {
+      mc->print(ss);
+    }
+
+    // mutex helpers
+    for (auto hf : mutHelpFuns) {
+      hf->print(ss);
+    }
+
+    // send helpers
+    for (auto sf : sendFunctions) {
+      sf->print(ss);
+    }
+
+    // message handlers
+    for (auto mh : messageHandlerFunctions){
+      mh.print(ss);
+    }
+
+    // cache and dir func
+    for (auto mh : machHandleFuncs) {
+      mh.print(ss);
+    }
+
+    // cache and dir load/store funcs
+    for (auto ef : cacheCpuEventFunctions) {
+      ef->print(ss);
+    }
+    return ss.str();
+  }
+
+  // Ruleset
+  std::string getRules() {
+    std::string r;
+    llvm::raw_string_ostream ss(r);
+    cacheRuleset.print(ss);
+    for (auto nrs : netRulesets) {
+      nrs.print(ss);
+    }
+    startState.print(ss);
+    return ss.str();
+  };
 };
 
 } // namespace murphi

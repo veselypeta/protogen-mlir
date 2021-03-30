@@ -76,6 +76,12 @@ def FunctionOp : Murphi_Op<"function">{
                         $_state.addRegion();
                 }]>
         ];
+
+        let extraClassDeclaration = [{
+                mlir::Block &getEntryBlock(){
+                        return getRegion().getBlocks().front();
+                }
+        }];
 }
 
 def CacheDefOp : Murphi_Op<"cache_definition">{
@@ -127,7 +133,12 @@ def MsgConstrOp : Murphi_Op<"msg_constr", [NoSideEffect]>{
 def SendOp: Murphi_Op<"send", []>{
         let summary = "send message on a network";
         let description = [{}];
-        let arguments = (ins AnyType:$msg, AnyAttr:$netId);
+        let arguments = (ins AnyType:$msg, AnyType:$netId);
+}
+
+def BreakOp: Murphi_Op<"break", [NoSideEffect, Terminator]>{
+        let summary = "Break out of a WhenOp";
+        let description = [{}];
 }
 
 def SetOp:Murphi_Op<"set", []>{
@@ -213,122 +224,54 @@ def CompareOp: Murphi_Op<"compare", []>{
         let results = (outs I1);
 }
 
+def MathOp: Murphi_Op<"math", []>{
+        let summary = "perfomr math op";
+        let description = [{}];
+        let arguments = (ins AnyType:$lhs, AnyType:$rhs, StrAttr:$op, StrAttr:$id);
+        let results = (outs AnyType);
+}
+
+// SET OPS
+
+def SetAddOp: Murphi_Op<"set_add", []>{
+        let summary = "add an element to a set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyType:$elem);
+}
+
+def SetContainsOp: Murphi_Op<"set_contains", []>{
+        let summary = "set contains element";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyType:$elem, AnyAttr:$id);
+        let results = (outs I1);
+}
+
+def SetDelOp: Murphi_Op<"set_del", []>{
+        let summary = "delete element from set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyType:$elem);
+}
+
+def SetCountOp: Murphi_Op<"set_count", []>{
+        let summary = "count the elements in the set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set, AnyAttr:$id);
+        let results = (outs I64);
+}
+
+def SetClearOp: Murphi_Op<"set_clear", []>{
+        let summary = "clear the set";
+        let description = [{}];
+        let arguments = (ins AnyType:$set);
+}
 
 
+def MCastOp: Murphi_Op<"mcast", []>{
+        let summary = "memory cast operation";
+        let description = [{}];
+        let arguments = (ins AnyType:$netId, AnyType:$msg, AnyType:$set);
+}
 
-
-
-// def TypeDeclOp : Murphi_Op<"type_decl"> {
-//         let summary = "Group all Type Declaration";
-//         let description = [{"In Murphi Types are group with the type keyword:
-//                 type
-//                         Access: enum {
-//                                 none,
-//                                 load,
-//                                 store
-//                         };
-
-//                         MessageType : enum {
-//                                 GetM,
-//                                 Fwd_GetM,
-//                                 GetM_Ack_D,
-//                                 PutM,
-//                                 Put_Ack
-//                         };
-
-                
-//                 Example:
-//                 ```mlir
-//                         "murphi.type_decl() ( {
-                                
-//                         })
-//                 ```
-
-//         "}];
-//         let regions = (region SizedRegion<1>:$region);
-// }
-
-
-
-// def ScalarsetOp : Murphi_Op<"scalarset">{
-//         let summary = "declare a scalarset operation";
-//         let description = [{}];
-
-//         let arguments = (ins AnyAttr:$id, AnyType:$value);
-//         let results = (outs AnyType);
-// }
-
-// def SubrangeOp : Murphi_Op<"subrange">{
-//         let summary = "define an integer subrange";
-//         let description = [{}];
-
-//         let arguments = (ins AnyType:$start, AnyType:$end, AnyAttr:$id);
-//         let results = (outs AnyType);
-// }
-
-// def UnionOp : Murphi_Op<"union">{
-//         let summary = "define a union of enums";
-//         let description = [{}];
-
-//         let arguments = (ins Variadic<AnyType>:$input, AnyAttr:$id);
-
-//         let results = (outs AnyType);
-// }
-
-// def RecordOp : Murphi_Op<"record">{
-//         let summary = "define a record/object";
-//         let description = [{}];
-
-//         let arguments = (ins Variadic<AnyType>:$input, AnyAttr:$id, ArrayAttr:$valueIds);
-//         let results = (outs AnyType);
-// }
-
-// def ArrayOp : Murphi_Op<"array">{
-//         let summary = "define an array in murphi";
-
-//         let description = [{}];
-
-//         let arguments = (ins AnyType:$arrySize, AnyType:$arrayType, AnyAttr:$id);
-//         let results = (outs AnyType);
-// }
-
-// def MultisetOp : Murphi_Op<"multiset">{
-//         let summary = "define multiset Op";
-//         let description = [{}];
-
-//         let arguments = (ins AnyType:$size, AnyType:$type, AnyAttr:$id);
-//         let results = (outs AnyType);
-// }
-
-// def VarDeclOp : Murphi_Op<"var_decl">{
-//         let summary = "declare a variable";
-//         let description = [{}];
-
-//         let arguments = (ins AnyType:$typeExpr, AnyAttr:$id);
-//         let results = (outs AnyType);
-// }
-
-
-// def ConstantDecl: Murphi_Op<"constant_decl"> {
-//         let summary = "group all contant operation";
-//         let description = [{"In Murphi Constants are group with the const keyword:
-//                 const
-//                         nrCache : 3;
-//                         ADR_COUNT : 1;
-
-                
-//                 Example:
-//                 ```mlir
-//                         "murphi.constant_decl() ( {
-//                                 %0 = "murphi.constant" () {value = 3, id = "nrCaches"} : () -> ()
-//                                 %1 = "murphi.constant" () {value = 1, id = "ADR_COUNT"} : () -> ()
-//                         })
-//                 ```
-
-//         "}];
-
-//         let regions = (region SizedRegion<1>:$region);
-// }
 
 
 #endif // MURPHI_OPS

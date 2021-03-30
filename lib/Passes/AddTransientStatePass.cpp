@@ -18,10 +18,10 @@
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/Sequence.h"
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <vector>
-#include <algorithm>
 
 using namespace mlir;
 
@@ -99,8 +99,8 @@ struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
     // Get the entry block of the opeartion
     mlir::Block &awaitEntryBlock = awaitOp.getRegion().front();
     for (mlir::Operation &op : awaitEntryBlock.getOperations()) {
-      // If anything except a await retrun op is found then it cannot be removed
-      if (dyn_cast<mlir::pcc::AwaitReturnOp>(op) == nullptr) {
+      // If a when is found then this cannot be removed yet
+      if (dyn_cast<mlir::pcc::WhenOp>(op) != nullptr) {
         return mlir::failure();
       }
     }
@@ -109,14 +109,20 @@ struct AwaitOpLowering : public OpRewritePattern<mlir::pcc::AwaitOp> {
     auto savedInsertionPoint = rewriter.saveInsertionPoint();
 
     // insert a set state op
-    mlir::pcc::FunctionOp parentFunc = awaitOp.getParentOfType<mlir::pcc::FunctionOp>();
-    std::string cur_state = parentFunc.getAttr("cur_state").cast<mlir::StringAttr>().getValue().str();
-    std::string action = parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
+    mlir::pcc::FunctionOp parentFunc =
+        awaitOp.getParentOfType<mlir::pcc::FunctionOp>();
+    std::string cur_state = parentFunc.getAttr("cur_state")
+                                .cast<mlir::StringAttr>()
+                                .getValue()
+                                .str();
+    std::string action =
+        parentFunc.getAttr("action").cast<mlir::StringAttr>().getValue().str();
     std::string new_state = cur_state + "_" + action;
 
     // set insetion point after the await op
     rewriter.setInsertionPointAfter(awaitOp);
-    rewriter.create<mlir::pcc::SetOp>(rewriter.getUnknownLoc(), "State", new_state);
+    rewriter.create<mlir::pcc::SetOp>(rewriter.getUnknownLoc(), "State",
+                                      new_state);
 
     // restore the insertion point
     rewriter.restoreInsertionPoint(savedInsertionPoint);
@@ -138,12 +144,8 @@ struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
     mlir::pcc::FunctionOp parentFunc =
         whenOp.getParentOfType<mlir::pcc::FunctionOp>();
 
-    mlir::ModuleOp moduleOp = whenOp.getParentOfType<mlir::ModuleOp>();
-
-    // If the parent->parent of the when op is 'When' then this is a nested when
-    // and we skip
-    if (dyn_cast<mlir::pcc::WhenOp>(whenOp.getParentOp()->getParentOp()) !=
-        nullptr) {
+    // Do not continue if we have a when op higher up
+    if (whenOp.getParentOfType<mlir::pcc::WhenOp>() != nullptr) {
       return mlir::failure();
     }
 
@@ -164,36 +166,29 @@ struct WhenOpLowering : public OpRewritePattern<mlir::pcc::WhenOp> {
     // Calculate new Transient State
     std::string newCurStateId = curStateAttr + "_" + actionAttr;
 
-    // Set the insertion point to module
-    rewriter.setInsertionPointToStart(
-        &moduleOp.getBodyRegion().getBlocks().front());
+    // Set the insertion point
+    rewriter.setInsertionPointAfter(parentFunc);
 
     // Generate a new function with these new attributes
     mlir::pcc::FunctionOp newFunc = rewriter.create<mlir::pcc::FunctionOp>(
         rewriter.getUnknownLoc(), machineAttr, newCurStateId, msgId);
-    mlir::Block *entryBlock = new mlir::Block();
-    newFunc.region().push_back(entryBlock);
+    // mlir::Block *entryBlock = new mlir::Block();
+    // newFunc.region().push_back(entryBlock);
 
-    // Set the insertion point to the start of the entry block
-    rewriter.setInsertionPointToStart(entryBlock);
 
-    // Iterate through the Nested Operations in the When Op Region and copy them
-    // to the new function
-    mlir::Region &srcEntryBlock = whenOp.getOperation()->getRegion(0);
-    mlir::Block &block = srcEntryBlock.front();
-    for (mlir::Operation &b : block.getOperations()) {
-      mlir::Operation *clone = b.clone();
-      // Skip the Break Operation
-      if (dyn_cast<mlir::pcc::BreakOp>(clone) != nullptr) {
-        continue;
-      }
-      // Copy the operation to the insertion point
-      rewriter.insert(clone);
-    }
+
+    rewriter.inlineRegionBefore(whenOp.clone().getRegion(),
+    newFunc.getRegion(),
+    newFunc.getRegion().end()    
+    );
+
+
+
+
 
     // Add a return Op to the Function
-    mlir::Value v;
-    rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
+    // mlir::Value v;
+    // rewriter.create<mlir::pcc::ReturnOp>(rewriter.getUnknownLoc(), v);
 
     // Erase the when Op
     rewriter.eraseOp(whenOp);
@@ -214,7 +209,7 @@ struct TransientStatePass : public AddTansientStatesBase<TransientStatePass> {
 
 void TransientStatePass::runOnOperation() {
   OwningRewritePatternList patterns;
-
+  // patterns.insert<InsertSetState>(&getContext());
   patterns.insert<WhenOpLowering>(&getContext());
   patterns.insert<AwaitOpLowering>(&getContext());
 

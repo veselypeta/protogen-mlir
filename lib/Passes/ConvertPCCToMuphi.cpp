@@ -64,10 +64,23 @@ struct SendOpConversion : public OpRewritePattern<mlir::pcc::SendOp> {
                                       PatternRewriter &rewriter) const final {
 
     mlir::Value msgConstrResult = pccSendOp.msg();
-    mlir::Attribute sendNetId = pccSendOp.getAttr("netId");
+    mlir::Value sendNetId = pccSendOp.netId();
     rewriter.replaceOpWithNewOp<mlir::murphi::SendOp>(
         pccSendOp, msgConstrResult, sendNetId);
     return mlir::success();
+  }
+};
+
+struct MathOpConversion : public OpRewritePattern<mlir::pcc::MathOp> {
+  MathOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::MathOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::MathOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::MathOp pccMathOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::MathOp>(
+        pccMathOp, pccMathOp.getResult().getType(), pccMathOp.lhs(),
+        pccMathOp.rhs(), pccMathOp.opAttr(), pccMathOp.idAttr());
   }
 };
 
@@ -193,6 +206,20 @@ struct CompareOpConvervsion : public OpRewritePattern<mlir::pcc::CompareOp> {
   }
 };
 
+struct ConstantOpConvervsion : public OpRewritePattern<mlir::pcc::ConstantOp> {
+  ConstantOpConvervsion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::ConstantOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::ConstantOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::ConstantOp pccConstOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::ConstantOp>(
+        pccConstOp, pccConstOp.getResult().getType(), pccConstOp.getAttr("id"),
+        pccConstOp.getAttr("value"));
+    return mlir::success();
+  }
+};
+
 struct EndIfOpConversion : public OpRewritePattern<mlir::pcc::EnfIfOp> {
   EndIfOpConversion(mlir::MLIRContext *ctx)
       : OpRewritePattern<mlir::pcc::EnfIfOp>(ctx, /*benefit*/ 1){};
@@ -202,6 +229,107 @@ struct EndIfOpConversion : public OpRewritePattern<mlir::pcc::EnfIfOp> {
                                       PatternRewriter &rewriter) const final {
 
     rewriter.replaceOpWithNewOp<mlir::murphi::EnfIfOp>(pccEndIfOp);
+    return mlir::success();
+  }
+};
+
+struct BreakOpConversion : public OpRewritePattern<mlir::pcc::BreakOp> {
+  BreakOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::BreakOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::BreakOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::BreakOp pccBreakOp,
+                                      PatternRewriter &rewriter) const final {
+    if (pccBreakOp.getParentOfType<mlir::pcc::FunctionOp>() == nullptr ||
+        pccBreakOp.getParentOfType<mlir::murphi::FunctionOp>() == nullptr) {
+      mlir::Value v;
+      rewriter.replaceOpWithNewOp<mlir::murphi::ReturnOp>(pccBreakOp, v);
+    } else {
+      rewriter.eraseOp(pccBreakOp);
+    }
+    return mlir::success();
+  }
+};
+
+struct SetAddOpConversion : public OpRewritePattern<mlir::pcc::SetAddOp> {
+  SetAddOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::SetAddOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::SetAddOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::SetAddOp pccSetAddOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::SetAddOp>(
+        pccSetAddOp, pccSetAddOp.getOperand(0), pccSetAddOp.getOperand(1));
+    return mlir::success();
+  }
+};
+
+struct SetContainsOpConversion
+    : public OpRewritePattern<mlir::pcc::SetContainsOp> {
+  SetContainsOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::SetContainsOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::SetContainsOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::SetContainsOp pccSetContainsOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::SetContainsOp>(
+        pccSetContainsOp, pccSetContainsOp.getResult().getType(),
+        pccSetContainsOp.getOperand(0), pccSetContainsOp.getOperand(1),
+        pccSetContainsOp.id());
+    return mlir::success();
+  }
+};
+
+struct SetDelOpConversion : public OpRewritePattern<mlir::pcc::SetDelOp> {
+  SetDelOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::SetDelOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::SetDelOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::SetDelOp pccSetDelOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::SetDelOp>(
+        pccSetDelOp, pccSetDelOp.getOperand(0), pccSetDelOp.getOperand(1));
+    return mlir::success();
+  }
+};
+
+struct SetCountOpConversion : public OpRewritePattern<mlir::pcc::SetCountOp> {
+  SetCountOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::SetCountOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::SetCountOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::SetCountOp pccSetCountOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::SetCountOp>(
+        pccSetCountOp, pccSetCountOp.getResult().getType(),
+        pccSetCountOp.getOperand(), pccSetCountOp.id());
+    return mlir::success();
+  }
+};
+
+struct SetClearOpConversion : public OpRewritePattern<mlir::pcc::SetClearOp> {
+  SetClearOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::SetClearOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::SetClearOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::SetClearOp pccSetClearOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::SetClearOp>(
+        pccSetClearOp, pccSetClearOp.getOperand());
+    return mlir::success();
+  }
+};
+
+struct MCastOpConversion : public OpRewritePattern<mlir::pcc::MCastOp> {
+  MCastOpConversion(mlir::MLIRContext *ctx)
+      : OpRewritePattern<mlir::pcc::MCastOp>(ctx, /*benefit*/ 1){};
+  using OpRewritePattern<mlir::pcc::MCastOp>::OpRewritePattern;
+
+  mlir::LogicalResult matchAndRewrite(mlir::pcc::MCastOp pccMCastOp,
+                                      PatternRewriter &rewriter) const final {
+    rewriter.replaceOpWithNewOp<mlir::murphi::MCastOp>(
+        pccMCastOp, pccMCastOp.getOperand(0), pccMCastOp.getOperand(1),
+        pccMCastOp.getOperand(2));
     return mlir::success();
   }
 };
@@ -295,6 +423,7 @@ void ConvertPCCPass::runOnOperation() {
   patterns.insert<SetOpConversion>(&ctx);
   patterns.insert<MsgConstrConversion>(&ctx);
   patterns.insert<SendOpConversion>(&ctx);
+  patterns.insert<MathOpConversion>(&ctx);
   patterns.insert<ReturnOpConversion>(&ctx);
   patterns.insert<EndIfOpConversion>(&ctx);
   patterns.insert<IfOpConversion>(&ctx);
@@ -302,6 +431,14 @@ void ConvertPCCPass::runOnOperation() {
   patterns.insert<NetworkDeclOpConversion>(&ctx);
   patterns.insert<ObjRefOpConvervsion>(&ctx);
   patterns.insert<CompareOpConvervsion>(&ctx);
+  patterns.insert<ConstantOpConvervsion>(&ctx);
+  patterns.insert<BreakOpConversion>(&ctx);
+  patterns.insert<SetAddOpConversion>(&ctx);
+  patterns.insert<SetContainsOpConversion>(&ctx);
+  patterns.insert<SetCountOpConversion>(&ctx);
+  patterns.insert<SetClearOpConversion>(&ctx);
+  patterns.insert<SetDelOpConversion>(&ctx);
+  patterns.insert<MCastOpConversion>(&ctx);
   patterns.insert<FunctionOpConversion>(&ctx);
 
   // apply the conversion

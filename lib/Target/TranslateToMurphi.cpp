@@ -19,6 +19,7 @@ public:
   target::murphi::Module &createModule() {
     addConstants();
     addBoilerplateConstants();
+    addIntegerDefinition();
     addAccessEnum();
     addMessageTypes();
     addCacheDirectoryStates();
@@ -67,6 +68,21 @@ private:
     });
   }
 
+  void addTopLevelConstants() {
+    for (auto &op : moduleOp.getRegion().getBlocks().front().getOperations()) {
+      if (mlir::murphi::ConstantOp tlConstOp =
+              mlir::dyn_cast<mlir::murphi::ConstantOp>(op)) {
+        int value =
+            tlConstOp.getAttr("value").cast<mlir::IntegerAttr>().getInt();
+        std::string id =
+            tlConstOp.getAttr("id").cast<mlir::StringAttr>().getValue().str();
+
+        target::murphi::Constant *cd = new target::murphi::Constant(id, value);
+        murphiModule.addConstant(cd);
+      }
+    }
+  }
+
   void addBoilerplateConstants() {
     // VAL_COUNT: 1;
     murphiModule.addConstant(new target::murphi::Constant("VAL_COUNT", 1));
@@ -78,6 +94,15 @@ private:
     // U_NET_MAX: 12;
     murphiModule.addConstant(new target::murphi::Constant("O_NET_MAX", 12));
     murphiModule.addConstant(new target::murphi::Constant("U_NET_MAX", 12));
+  }
+
+  void addIntegerDefinition() {
+    int start = 0;
+    int end = 100000;
+    std::string id = "integer";
+    target::murphi::ValRange *integer =
+        new target::murphi::ValRange(id, start, end);
+    murphiModule.addValRange(integer);
   }
 
   void addAccessEnum() {
@@ -508,11 +533,15 @@ private:
       }
     }
 
-    return message_constructor(constrId, interleaveComma(parameters));
+    return message_constructor_call(constrId, interleaveComma(parameters));
   }
 
   std::string generateSendOpMurphi(mlir::murphi::SendOp &sendOp) {
-    std::string netId = getStrAttrFromOp(sendOp, "netId");
+    std::string netId = sendOp.getOperand(1)
+                            .getDefiningOp()
+                            ->getAttrOfType<mlir::StringAttr>("id")
+                            .getValue()
+                            .str();
     return send_message(netId);
   }
 
@@ -571,7 +600,7 @@ private:
         return operation_release_mutex_template;
       }
     }
-    
+
     return "";
   }
 
@@ -579,15 +608,17 @@ private:
   getMessageHandler(mlir::murphi::FunctionOp handleFunc) {
     std::string action = getStrAttrFromOp(handleFunc, "action");
     std::string machine = getStrAttrFromOp(handleFunc, "machine");
+    std::string cur_state = getStrAttrFromOp(handleFunc, "cur_state");
 
     // generate the message handler
     target::murphi::MessageHandler msgHandler(action);
 
-    // iterate over all operations in the entry block
-    for (mlir::Operation &nestedOp :
-         handleFunc.getRegion().getBlocks().front().getOperations()) {
-      msgHandler.add_operation_text(generateOperationMurphi(nestedOp, machine));
-    }
+    // generate a machine message handler func
+    target::murphi::MachineMessageHanlderFunc machHandler(cur_state, action,
+                                                          machine, handleFunc);
+    murphiModule.addMessageHanlderFunction(machHandler);
+
+    msgHandler.add_operation_text(machHandler.getCallCode());
     return msgHandler;
   }
 

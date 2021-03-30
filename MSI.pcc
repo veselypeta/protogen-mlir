@@ -34,20 +34,20 @@ Message RespAck{
 
 Architecture cache {
 
-    Stable{I, S, M}
+   Stable{I, S, M}
 
-    // I ////////////////////////////////////////////////////////
-    Process(I, load, State){
-        msg = Request(GetS, ID, directory.ID);
-        req.send(msg);
+   // I ////////////////////////////////////////////////////////
+   Process(I, load, State){
+       msg = Request(GetS, ID, directory.ID);
+       req.send(msg);
 
-        await{
-            when GetS_Ack:
-                cl=GetS_Ack.cl;
-                State = S;
-                break;
-        }
-    }
+       await{
+           when GetS_Ack:
+               cl=GetS_Ack.cl;
+               State = S;
+               break;
+       }
+   }
 
     Process(I, store, State){
         msg = Request(GetM, ID, directory.ID);
@@ -192,32 +192,13 @@ Architecture directory {
     }
 
     Process(S, Upgrade){
-       //if cache.contains(Upgrade.src){
-       //    cache.del(Upgrade.src);
-       //    msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
-       //    resp.send(msg);
-       //    State=M;
-       //    break;
-       //} else {
-       //    msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
-       //    resp.send(msg);
-       //    State=M;
-       //    break;
-       //}
-       //msg = Ack(Inv, Upgrade.src, Upgrade.src);
-       //fwd.mcast(msg, cache);
-       //owner = Upgrade.src;
-       //cache.clear();
-
        if cache.contains(Upgrade.src){
            cache.del(Upgrade.src);
        }
        msg = RespAck(GetM_Ack_AD, ID, Upgrade.src, cl, cache.count());
        resp.send(msg);
        State=M;
-
        msg2 = Ack(Inv, Upgrade.src, Upgrade.src);
-
        fwd.mcast(msg2, cache);
        owner = Upgrade.src;
        cache.clear();

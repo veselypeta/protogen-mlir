@@ -110,13 +110,11 @@ def SendOp: PCC_Op<"send", []>{
                         %0 = "pcc.send"(%0: Network, %1: Msg): (Network, Msg) -> ()
                 ```
         }];
+        let arguments = (ins AnyType:$msg, AnyType:$netId);
 
-        // let arguments = (ins 
-        //         PCC_NetType:$network,
-        //         PCC_MsgType:$msg
-        // );
+        let extraClassDeclaration = [{
 
-        let arguments = (ins AnyType:$msg, AnyAttr:$netId);
+        }];
 }
 
 def MsgConstrOp : PCC_Op<"msg_constr", [NoSideEffect]>{
@@ -168,8 +166,8 @@ def WhenOp: PCC_Op<"when", []>{
                 }]>
         ];
 }
-
-def BreakOp: PCC_Op<"break", [NoSideEffect, HasParent<"WhenOp">, Terminator]>{
+// , HasParent<"WhenOp">
+def BreakOp: PCC_Op<"break", [NoSideEffect, Terminator]>{
         let summary = "Break out of a WhenOp";
         let description = [{}];
 }

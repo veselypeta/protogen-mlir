@@ -72,3 +72,12 @@ module{
         // }){startState="M", finalstate="State", action="Put_M"} : () -> ()
 
 }
+
+
+"pcc.cache_def_op"()({
+
+    "pcc.state_decl"(){initial_state="I"} : () -> ()
+    "pcc.data_decl"(){id="cl"} : () -> ()
+    "pcc.int_decl"(%0, %1) {value=0, id="acksReceived"}
+    
+}) : () -> ()

@@ -526,9 +526,11 @@ private:
     if (ctx->assign_types()->math_op() != nullptr) {
       mlir::Value lhs = mlirGen(ctx->assign_types()->math_op()->val_range()[0]);
       mlir::Value rhs = mlirGen(ctx->assign_types()->math_op()->val_range()[1]);
+      std::string uid = utils::getUniqueId();
       if (ctx->assign_types()->math_op()->PLUS() != nullptr) {
-        mlir::Value v =
-            builder.create<mlir::AddIOp>(builder.getUnknownLoc(), lhs, rhs);
+        mlir::Value v = builder.create<mlir::pcc::MathOp>(
+            builder.getUnknownLoc(), lhs.getType(), lhs, rhs,
+            builder.getStringAttr("+"), builder.getStringAttr(uid));
         return declare(v, ctx);
       } else {
         mlir::Value v =
@@ -544,7 +546,10 @@ private:
     if (ctx->INT() != nullptr) {
       int value = atoi(ctx->INT()->getText().c_str());
       mlir::IntegerAttr intAttr = builder.getI64IntegerAttr(value);
-      return builder.create<mlir::ConstantOp>(builder.getUnknownLoc(), intAttr);
+      std::string uid = utils::getUniqueId();
+      return builder.create<mlir::pcc::ConstantOp>(
+          builder.getUnknownLoc(), intAttr.getType(),
+          builder.getStringAttr(uid), intAttr);
     } else {
       std::string valueId = ctx->ID()->getText();
       return symbolTable.lookup(valueId).first;
@@ -660,10 +665,11 @@ private:
     assert(msgConstructor.first != nullptr);
 
     // TODO -- check that network exists
+    mlir::Value networkRef = lookup(netId);
 
     mlir::Value msgInput = msgConstructor.first;
     builder.create<mlir::pcc::SendOp>(builder.getUnknownLoc(), msgInput,
-                                      builder.getStringAttr(netId));
+                                      networkRef);
     return mlir::success();
   }
 

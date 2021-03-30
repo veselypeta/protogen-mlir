@@ -1,5 +1,6 @@
 add_mlir_dialect_library(utils
 stateUtils.cpp
+murphiUtils.cpp
 
 ADDITIONAL_HEADER_DIRS
 ${PROJECT_SOURCE_DIR}/include/utils

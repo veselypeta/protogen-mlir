@@ -1,27 +1,27 @@
 
-Network{
-    Ordered fwd;
-};
-
-Cache{
-    State I;
-} cache;
-
-Directory{
-    State I;
-} directory;
-
-Message Request{};
+//Network{
+//    Ordered fwd;
+//};
+//
+//Cache{
+//    State I;
+//} cache;
+//
+//Directory{
+//    State I;
+//} directory;
+//
+//Message Request{};
 
 Architecture cache {
     Stable {I, M}
 
     Process(S, Upgrade, M){
         i = 32;
-        if cache.contains(Upgrade.src) == 3 + 1 {
-            t = 31;
-        } else{
-            j = 21;
+        await {
+            when GetM:
+                j = 32 + 21;
+                break;
         }
     }
 }
