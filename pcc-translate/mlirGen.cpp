@@ -304,6 +304,7 @@ private:
 
   // arch_block : ARCH ID OCBRACE arch_body CCBRACE;
   mlir::LogicalResult mlirGen(ProtoCCParser::Arch_blockContext *ctx) {
+    this->cur_mach = ctx->ID()->getText();
     return mlirGen(ctx->arch_body());
   }
 
@@ -323,20 +324,21 @@ private:
     SymbolTableScopeT var_scope(symbolTable);
 
     // Get the parent architecture type (cache or directory)
-    ProtoCCParser::Arch_blockContext *parentArchCtx =
-        dynamic_cast<ProtoCCParser::Arch_blockContext *>(ctx->parent->parent);
-    if (parentArchCtx == nullptr) {
-      return mlir::failure();
-    }
+    // ProtoCCParser::Arch_blockContext *parentArchCtx =
+    //     dynamic_cast<ProtoCCParser::Arch_blockContext *>(ctx->parent->parent);
+    // assert(parentArchCtx != nullptr && "Failed to get parent arch block");
 
     // Set a flag for the current machine we are working on
-    std::string machine = parentArchCtx->ID()->getText();
-    this->cur_mach = machine;
+    // std::string machine = parentArchCtx->ID()->getText();
+    // this->cur_mach = machine;
 
+    // std::cout << ctx->getText() << std::endl;
     // Get the current state and action from the Process() parameters
     std::string cur_state =
-        machine + "_" + ctx->process_trans()->ID()->getText();
+        cur_mach + "_" + ctx->process_trans()->ID()->getText();
     std::string action = ctx->process_trans()->process_events()->getText();
+
+    // std::cout << cur_mach << " " << cur_state << " " << action << std::endl; 
 
     // Some will have an end-state -- TODO more research into how to set the
     // end-state for each state handler
@@ -353,7 +355,7 @@ private:
 
     // create the function op for the state and event
     mlir::pcc::FunctionOp funOp = builder.create<mlir::pcc::FunctionOp>(
-        builder.getUnknownLoc(), builder.getStringAttr(machine),
+        builder.getUnknownLoc(), builder.getStringAttr(cur_mach),
         builder.getStringAttr(cur_state), builder.getStringAttr(action),
         endStateAttr);
 

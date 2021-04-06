@@ -20,6 +20,7 @@ void pipelineBuilder(mlir::OpPassManager &pm){
     pm.addPass(mlir::createMutexReleasePass());
     pm.addPass(mlir::createAddTransientStatePass());
     pm.addPass(mlir::createPCCToMurphiPass());
+    pm.addPass(mlir::createPCCToMurphiPass());
 }
 
 void mlir::registerStableCompilation(){

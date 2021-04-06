@@ -1,4 +1,4 @@
-# nrCaches 3
+# NrCaches 3
 
 Network { Ordered fwd;    //FwdGetS, FwdGetM, Inv, PutAck
           Unordered resp; // Data, InvAck

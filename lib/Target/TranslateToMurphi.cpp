@@ -35,6 +35,7 @@ public:
     if (!concurrent)
       addClMutexHelperFunctions();
     addSendFunctions();
+    // TODO -- add set operation functions
     addCacheFunction();
     addDirectoryFunction();
 
@@ -102,7 +103,17 @@ private:
     std::string id = "integer";
     target::murphi::ValRange *integer =
         new target::murphi::ValRange(id, start, end);
+
+    target::murphi::ValRange *cntCaches = new target::murphi::ValRange(
+        "cnt_NrCaches", 0, murphiModule.findReference("NrCaches"));
     murphiModule.addValRange(integer);
+    murphiModule.addValRange(cntCaches);
+
+    // Add set size
+    target::murphi::Boilerplate *setBP = new target::murphi::Boilerplate(
+        "v_NrCaches_OBJSET_cache",
+        "v_NrCaches_OBJSET_cache: multiset[NrCaches] of OBJSET_cache;\n");
+    murphiModule.addBoilerplate(setBP);
   }
 
   void addAccessEnum() {
@@ -176,7 +187,7 @@ private:
   void addCacheDirectoryObjectDefinitions() {
     // OBJSET_cache: scalarset(NrCaches);
     target::murphi::Scalarset *objsetCache = new target::murphi::Scalarset(
-        "OBJSET_cache", murphiModule.findReference("nrCaches"));
+        "OBJSET_cache", murphiModule.findReference("NrCaches"));
 
     // OBJSET_directory: enum{directory};
     std::vector<std::string> directoryValues;
@@ -213,6 +224,8 @@ private:
           typeId = "ClValue";
         } else if (typeName == "ID") {
           typeId = "Machines";
+        } else if (typeName == "0..NrCaches") {
+          typeId = "cnt_NrCaches";
         }
         // Push each element into the data structure
         cache->addEntry(fieldName, murphiModule.findReference(typeId));
@@ -235,6 +248,8 @@ private:
           typeId = "ClValue";
         } else if (typeName == "ID") {
           typeId = "Machines";
+        } else if (typeName == "set[NrCaches] ID") {
+          typeId = "v_NrCaches_OBJSET_cache";
         }
         // Push each element into the data structure
         directory->addEntry(fieldName, murphiModule.findReference(typeId));
@@ -270,6 +285,8 @@ private:
         // TODO -- Make more sophisticated
         if (tid == "Data") {
           msgDef->addEntry(fid, murphiModule.findReference("ClValue"));
+        } else if (tid == "0..NrCaches") {
+          msgDef->addEntry(fid, murphiModule.findReference("cnt_NrCaches"));
         }
       }
     });
@@ -695,6 +712,8 @@ private:
           operations += start_state_assignment("cache", "State", initialState);
         } else if (field == "cl") {
           operations += start_state_assignment("cache", "cl", "0");
+        } else if (type == "0..NrCaches"){
+          operations += start_state_assignment("cache", field, "0");
         }
       }
       // Add permission initially to None
@@ -829,7 +848,7 @@ void registerToMurphiTranslation() {
   mlir::TranslateFromMLIRRegistration registration(
       "mlir-to-murphi",
       [](mlir::ModuleOp op, mlir::raw_ostream &output) {
-        auto murphiGen = murphiGenImpl::MurphiGen(op, /*concurrent*/ true);
+        auto murphiGen = murphiGenImpl::MurphiGen(op, /*concurrent*/ false);
         auto &murphiModule = murphiGen.createModule();
         murphiModule.print(output);
         return mlir::success();

@@ -365,6 +365,57 @@ std::string general_variable_assignment_template = "\
 {0} := {1};\n\
 ";
 
+
+// SET OPERATIONS TEMPLATES //
+
+std::string set_add_template = "\
+-- .add()\n\
+procedure Set_add_{0}(var set:{0}; n:{1});\n\
+begin\n\
+    if MultiSetCount(i:set, set[i] = n) = 0 then\n\
+      MultiSetAdd(n, set);\n\
+    endif;\n\
+end;\n\
+";
+
+
+std::string set_del_template = "\
+-- .del()\n\
+procedure Set_del_{0}(var sv:{0}; n:{1});\n\
+begin\n\
+    if MultiSetCount(i:sv, sv[i] = n) = 1 then\n\
+      MultiSetRemovePred(i:sv, sv[i] = n);\n\
+    endif;\n\
+end;\n\
+";
+
+std::string set_clear_template = "\
+-- .clear()\n\
+procedure Set_clear_{0}(var sv:{0};);\n\
+begin\n\
+    MultiSetRemovePred(i:sv, true);\n\
+end;\n\
+";
+
+std::string set_contains_template = "\
+-- .contains()\n\
+function Set_contains_{0}(var sv:{0}; n:{1}) : boolean;\n\
+begin\n\
+    if MultiSetCount(i:sv, sv[i] = n) = 1 then\n\
+      return true;\n\
+    elsif MultiSetCount(i:sv, sv[i] = n) = 0 then\n\
+      return false;\n\
+    else\n\
+      Error \"Multiple Entries of Sharer in SV multiset\";\n\
+    endif;\n\
+  return false;\n\
+end;\n\
+";
+
+std::string set_function_call_template = "\
+Set_{0}_{1}({2} {3});\n\
+";
+
 /// Murphi Program ///
 std::string make_murphi_program(std::string decls, std::string procedures,
                                 std::string rules) {
@@ -541,4 +592,30 @@ std::string make_if_else_statement(std::string boolRef, std::string thenOps, std
 
 std::string make_general_assignment_statement(std::string assignmentId, std::string assignmentValue){
   return fmt::format(general_variable_assignment_template, assignmentId, assignmentValue);
+}
+
+
+/// SET OPERATIONS //
+
+std::string make_set_add_helper_function(std::string setType, std::string elemType){
+  return fmt::format(set_add_template, setType, elemType);
+}
+
+std::string make_set_del_helper_function(std::string setType, std::string elemType){
+  return fmt::format(set_del_template, setType, elemType);
+}
+
+std::string make_set_clear_helper_function(std::string setType){
+  return fmt::format(set_clear_template, setType);
+}
+
+std::string make_set_contains_helper_function(std::string setType, std::string elemType){
+  return fmt::format(set_contains_template, setType, elemType);
+}
+
+std::string make_set_operation_call(std::string operation, std::string setType, std::string setRef, std::string elemRef){
+  if (operation != "clear"){
+    elemRef = ", " + elemRef;
+  }
+  return fmt::format(set_function_call_template, operation, setType, setRef, elemRef);
 }

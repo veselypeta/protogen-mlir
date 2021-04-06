@@ -141,7 +141,6 @@ struct ExIfOpConversion : public OpRewritePattern<mlir::pcc::ExIfOp> {
     mlir::murphi::ExIfOp murphiExIfOp = rewriter.create<mlir::murphi::ExIfOp>(
         rewriter.getUnknownLoc(), pccExIfOp.getOperand());
 
-    // inline the regions
     rewriter.inlineRegionBefore(ifOpClone.getThenRegion(),
                                 murphiExIfOp.getThenRegion(),
                                 murphiExIfOp.getThenRegion().end());
@@ -438,7 +437,7 @@ void ConvertPCCPass::runOnOperation() {
   patterns.insert<SetContainsOpConversion>(&ctx);
   patterns.insert<SetCountOpConversion>(&ctx);
   patterns.insert<SetClearOpConversion>(&ctx);
-  // patterns.insert<SetDelOpConversion>(&ctx);
+  patterns.insert<SetDelOpConversion>(&ctx);
   patterns.insert<MCastOpConversion>(&ctx);
   patterns.insert<FunctionOpConversion>(&ctx);
 
